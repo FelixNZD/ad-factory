@@ -30,6 +30,35 @@ async function fetchWithTimeout(resource, options = {}) {
 }
 
 /**
+ * Safely parses JSON response and handles non-JSON errors
+ */
+async function handleResponse(response) {
+  const contentType = response.headers.get('content-type');
+
+  if (!response.ok) {
+    if (contentType && contentType.includes('application/json')) {
+      const errorData = await response.json();
+      throw new Error(errorData.msg || `Server error: ${response.status}`);
+    } else {
+      const text = await response.text();
+      // Look for common HTML error patterns to provide a better message
+      if (text.includes('The page cannot be found') || text.includes('404')) {
+        throw new Error(`Endpoint not found (404). Please check proxy configuration.`);
+      }
+      throw new Error(`Server returned non-JSON error (${response.status}). The service might be temporarily down.`);
+    }
+  }
+
+  if (!contentType || !contentType.includes('application/json')) {
+    const text = await response.text();
+    console.error('Unexpected non-JSON response:', text);
+    throw new Error('Server returned an invalid response format (HTML instead of JSON).');
+  }
+
+  return await response.json();
+}
+
+/**
  * Uploads a base64 image to Kie.ai
  * Using the RedPanda backend which often handles these file uploads
  */
@@ -51,13 +80,13 @@ export const uploadImage = async (base64Data) => {
       })
     });
 
-    const result = await response.json();
-
     // If RedPanda fails with 404, try the main Kie API as fallback
     if (response.status === 404) {
       console.warn('RedPanda upload 404, falling back to main Kie API...');
       return await uploadImageFallback(base64Data);
     }
+
+    const result = await handleResponse(response);
 
     if (result.code !== 200) {
       throw new Error(result.msg || 'Image upload failed');
@@ -89,7 +118,7 @@ async function uploadImageFallback(base64Data) {
     })
   });
 
-  const result = await response.json();
+  const result = await handleResponse(response);
   if (result.code !== 200) {
     throw new Error(result.msg || 'Image upload fallback failed');
   }
@@ -131,7 +160,7 @@ export const generateAdVideo = async (options, onProgress) => {
       body: JSON.stringify(requestBody)
     });
 
-    const data = await response.json();
+    const data = await handleResponse(response);
 
     if (data.code !== 200) {
       throw new Error(data.msg || 'API request failed');
@@ -224,7 +253,7 @@ export const pollTaskStatus = async (taskId) => {
 
       if (!response.ok) continue;
 
-      const data = await response.json();
+      const data = await handleResponse(response);
       console.log(`Kie.ai Polling [${url.split('/').pop().split('?')[0]}]:`, data);
 
       if (data.code === 200 && data.data) {
