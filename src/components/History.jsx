@@ -2,6 +2,25 @@ import React from 'react';
 import { Download, RefreshCw, Trash2, ExternalLink } from 'lucide-react';
 
 const History = ({ history }) => {
+    const handleDownload = async (url, filename) => {
+        try {
+            const response = await fetch(url);
+            const blob = await response.blob();
+            const blobUrl = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = filename || 'ad-video.mp4';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(blobUrl);
+        } catch (error) {
+            console.error('Download failed:', error);
+            // Fallback: Open in new tab if blob download fails
+            window.open(url, '_blank');
+        }
+    };
+
     return (
         <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
             <header style={{ marginBottom: '40px' }}>
@@ -41,7 +60,11 @@ const History = ({ history }) => {
                                 </p>
 
                                 <div style={{ display: 'flex', gap: '12px' }}>
-                                    <button className="btn-primary" style={{ padding: '8px 16px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <button
+                                        onClick={() => handleDownload(item.videoUrl, `ad-${item.timestamp}.mp4`)}
+                                        className="btn-primary"
+                                        style={{ padding: '8px 16px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                                    >
                                         <Download size={14} /> Download
                                     </button>
                                     <button className="card" style={{ padding: '8px 16px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>

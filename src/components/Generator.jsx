@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Send, Loader2, CheckCircle2, AlertCircle, Download, RefreshCw, Sparkles, Upload, FileImage, X, Monitor, Smartphone, Square } from 'lucide-react';
+import { Camera, Send, Loader2, CheckCircle2, AlertCircle, Download, RefreshCw, Sparkles, Upload, FileImage, X, Monitor, Smartphone, Square, User, UserPlus } from 'lucide-react';
 import { generateAdVideo, pollTaskStatus } from '../services/kieService';
 
 const ASPECT_RATIOS = [
@@ -20,6 +20,7 @@ const PRODUCTION_MESSAGES = [
 ];
 
 const Generator = ({ onComplete }) => {
+    const [gender, setGender] = useState('male');
     const [script, setScript] = useState('');
     const [context, setContext] = useState('');
     const [imageFile, setImageFile] = useState(null);
@@ -38,7 +39,13 @@ const Generator = ({ onComplete }) => {
     const AUSTRALIAN_LIFE_INSURANCE = {
         name: 'Australian Life Insurance',
         cost: '0.25 Credits',
-        basePrompt: (script, context) => `Make the Man in the video speak with a clear Australian accent while delivering the following lines. He is mid 60s and is talking about his experience with life insurance. The voice should be direct, not too expressive, just matter of fact talking about his experience.\n\n"${script}"${context ? `\n\nAdditional Context: ${context}` : ''}`
+        basePrompt: (script, context, gender) => {
+            const actor = gender === 'male' ? 'Man' : 'Woman';
+            const subject = gender === 'male' ? 'He' : 'She';
+            const possessive = gender === 'male' ? 'his' : 'her';
+
+            return `Make the ${actor} in the video speak with a clear Australian accent while delivering the following lines. ${subject} is mid 60s and is talking about ${possessive} experience with life insurance. The voice should be direct, not too expressive, just matter of fact talking about ${possessive} experience.\n\n"${script}"${context ? `\n\nAdditional Context: ${context}` : ''}`
+        }
     };
 
     const handleFileChange = (e) => {
@@ -97,7 +104,7 @@ const Generator = ({ onComplete }) => {
         consecutiveFailuresRef.current = 0;
 
         try {
-            const finalPrompt = AUSTRALIAN_LIFE_INSURANCE.basePrompt(script, context);
+            const finalPrompt = AUSTRALIAN_LIFE_INSURANCE.basePrompt(script, context, gender);
 
             const response = await generateAdVideo(
                 { prompt: finalPrompt, imageUrl: imagePreview, model: 'veo3_fast', aspectRatio },
@@ -129,7 +136,8 @@ const Generator = ({ onComplete }) => {
                                 script,
                                 imageUrl: imagePreview,
                                 presetName: AUSTRALIAN_LIFE_INSURANCE.name,
-                                aspectRatio
+                                aspectRatio,
+                                gender
                             };
                             setResult(finalResult);
                             setStatus('completed');
@@ -181,6 +189,24 @@ const Generator = ({ onComplete }) => {
         consecutiveFailuresRef.current = 0;
     };
 
+    const handleDownload = async (url, filename) => {
+        try {
+            const response = await fetch(url);
+            const blob = await response.blob();
+            const blobUrl = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = filename || 'ad-video.mp4';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(blobUrl);
+        } catch (error) {
+            console.error('Download failed:', error);
+            window.open(url, '_blank');
+        }
+    };
+
     return (
         <div className="animate-fade-in" style={{ maxWidth: '900px', margin: '0 auto' }}>
             <header style={{ marginBottom: '40px' }}>
@@ -217,9 +243,9 @@ const Generator = ({ onComplete }) => {
                         </div>
 
                         <div style={{ display: 'flex', gap: '16px', justifyContent: 'center' }}>
-                            <a href={result?.videoUrl} target="_blank" rel="noopener noreferrer" download className="btn-primary" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 28px' }}>
+                            <button onClick={() => handleDownload(result?.videoUrl, `ad-${result?.timestamp}.mp4`)} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 28px' }}>
                                 <Download size={20} /> Download MP4
-                            </a>
+                            </button>
                             <button onClick={handleReset} className="card" style={{ padding: '14px 28px', backgroundColor: 'transparent' }}>
                                 Start New
                             </button>
@@ -288,6 +314,50 @@ const Generator = ({ onComplete }) => {
                                 <div style={{ backgroundColor: 'rgba(255, 0, 0, 0.05)', borderLeft: '3px solid var(--primary-color)', padding: '16px', borderRadius: '8px', marginBottom: '20px' }}>
                                     <div style={{ fontWeight: '700', fontSize: '14px' }}>Australian Life Insurance</div>
                                     <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>Veo 3.1 Fast Engine</div>
+                                </div>
+
+                                <div style={{ marginBottom: '20px' }}>
+                                    <label style={{ fontSize: '11px', fontWeight: '800', color: 'var(--text-muted)', marginBottom: '10px', display: 'block' }}>GENDER</label>
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <button
+                                            onClick={() => setGender('male')}
+                                            disabled={status === 'generating'}
+                                            style={{
+                                                flex: 1,
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                gap: '8px',
+                                                padding: '10px',
+                                                borderRadius: '8px',
+                                                border: gender === 'male' ? '2px solid var(--primary-color)' : '1px solid #333',
+                                                backgroundColor: gender === 'male' ? 'rgba(255,0,0,0.05)' : 'transparent',
+                                                color: gender === 'male' ? '#fff' : '#888',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            <span style={{ fontSize: '12px', fontWeight: '600' }}>Male</span>
+                                        </button>
+                                        <button
+                                            onClick={() => setGender('female')}
+                                            disabled={status === 'generating'}
+                                            style={{
+                                                flex: 1,
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                gap: '8px',
+                                                padding: '10px',
+                                                borderRadius: '8px',
+                                                border: gender === 'female' ? '2px solid var(--primary-color)' : '1px solid #333',
+                                                backgroundColor: gender === 'female' ? 'rgba(255,0,0,0.05)' : 'transparent',
+                                                color: gender === 'female' ? '#fff' : '#888',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            <span style={{ fontSize: '12px', fontWeight: '600' }}>Female</span>
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <div style={{ marginBottom: '20px' }}>
