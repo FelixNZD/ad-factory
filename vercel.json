@@ -1,0 +1,12 @@
+{
+    "rewrites": [
+        {
+            "source": "/api-kie/:path*",
+            "destination": "https://api.kie.ai/:path*"
+        },
+        {
+            "source": "/api-upload/:path*",
+            "destination": "https://kieai.redpandaai.co/:path*"
+        }
+    ]
+}
