@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Send, Loader2, CheckCircle2, AlertCircle, Download, RefreshCw, Sparkles, Upload, FileImage, X, Monitor, Smartphone, Square, User, UserPlus } from 'lucide-react';
+import { Camera, Send, Loader2, CheckCircle2, AlertCircle, Download, RefreshCw, Sparkles, Upload, FileImage, X, Monitor, Smartphone, Square } from 'lucide-react';
 import { generateAdVideo, pollTaskStatus } from '../services/kieService';
 
 const ASPECT_RATIOS = [
@@ -19,6 +19,18 @@ const PRODUCTION_MESSAGES = [
     "Wrapping up UGC performance..."
 ];
 
+const AUSTRALIAN_LIFE_INSURANCE = {
+    name: 'Australian Life Insurance',
+    cost: '0.25 Credits',
+    basePrompt: (script, context, gender) => {
+        const actor = gender === 'male' ? 'Man' : 'Woman';
+        const subject = gender === 'male' ? 'He' : 'She';
+        const possessive = gender === 'male' ? 'his' : 'her';
+
+        return `Make the ${actor} in the video speak with a clear Australian accent while delivering the following lines. ${subject} is mid 60s and is talking about ${possessive} experience with life insurance. The voice should be direct, not too expressive, just matter of fact talking about ${possessive} experience.\n\n"${script}"${context ? `\n\nAdditional Context: ${context}` : ''}`
+    }
+};
+
 const Generator = ({ onComplete }) => {
     const [gender, setGender] = useState('male');
     const [script, setScript] = useState('');
@@ -35,18 +47,6 @@ const Generator = ({ onComplete }) => {
 
     const messageIntervalRef = useRef(null);
     const consecutiveFailuresRef = useRef(0);
-
-    const AUSTRALIAN_LIFE_INSURANCE = {
-        name: 'Australian Life Insurance',
-        cost: '0.25 Credits',
-        basePrompt: (script, context, gender) => {
-            const actor = gender === 'male' ? 'Man' : 'Woman';
-            const subject = gender === 'male' ? 'He' : 'She';
-            const possessive = gender === 'male' ? 'his' : 'her';
-
-            return `Make the ${actor} in the video speak with a clear Australian accent while delivering the following lines. ${subject} is mid 60s and is talking about ${possessive} experience with life insurance. The voice should be direct, not too expressive, just matter of fact talking about ${possessive} experience.\n\n"${script}"${context ? `\n\nAdditional Context: ${context}` : ''}`
-        }
-    };
 
     const handleFileChange = (e) => {
         const file = e.target.files[0];
@@ -141,8 +141,10 @@ const Generator = ({ onComplete }) => {
                             };
                             setResult(finalResult);
                             setStatus('completed');
-                            onComplete(finalResult);
                             setProgress(100);
+                            if (typeof onComplete === 'function') {
+                                onComplete(finalResult);
+                            }
                         } else if (pollResponse.status === 'failed') {
                             stopDynamicUpdates();
                             clearInterval(interval);

@@ -1,7 +1,8 @@
 import React from 'react';
 import { Play, TrendingUp, Clock, ArrowRight } from 'lucide-react';
 
-const Dashboard = ({ history, onGenerate }) => {
+const Dashboard = ({ history, onNavigate }) => {
+    const onGenerate = onNavigate;
     const totalGens = history.length;
     const recentVideos = history.slice(0, 3);
 
