@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { Lock, Mail, Loader2, Sparkles, AlertCircle, ShieldCheck } from 'lucide-react';
+import { Lock, Mail, Loader2, Sparkles, AlertCircle, ShieldCheck, Sun, Moon } from 'lucide-react';
 
 const ADMIN_EMAILS = ['felix@axerevenue.com', 'jack@axerevenue.com'];
 const ADMIN_PASSWORD = 'AxeRev99@@';
 
-const Login = ({ onLogin }) => {
+const Login = ({ onLogin, theme, toggleTheme }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -31,18 +31,43 @@ const Login = ({ onLogin }) => {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            background: 'radial-gradient(circle at center, #111 0%, #000 100%)',
-            padding: '20px'
+            backgroundColor: 'var(--bg-color)',
+            background: theme === 'dark'
+                ? 'radial-gradient(circle at center, #111 0%, #000 100%)'
+                : 'radial-gradient(circle at center, #ffffff 0%, #f8f9fa 100%)',
+            padding: '20px',
+            position: 'relative'
         }}>
+            <button
+                onClick={toggleTheme}
+                style={{
+                    position: 'absolute',
+                    top: '40px',
+                    right: '40px',
+                    padding: '12px',
+                    borderRadius: '12px',
+                    backgroundColor: 'var(--surface-color)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-color)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                }}
+            >
+                {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+            </button>
+
             <div className="card animate-slide-up" style={{
                 width: '100%',
                 maxWidth: '420px',
                 padding: '48px',
-                backgroundColor: 'rgba(17, 17, 17, 0.6)',
+                backgroundColor: theme === 'dark' ? 'rgba(17, 17, 17, 0.6)' : 'rgba(255, 255, 255, 0.8)',
                 backdropFilter: 'blur(20px)',
                 borderRadius: '32px',
-                border: '1px solid rgba(255, 255, 255, 0.05)',
-                boxShadow: '0 40px 100px -20px rgba(0, 0, 0, 0.8)'
+                border: '1px solid var(--border-color)',
+                boxShadow: theme === 'dark' ? '0 40px 100px -20px rgba(0, 0, 0, 0.8)' : '0 40px 100px -20px rgba(0, 0, 0, 0.1)'
             }}>
                 <div style={{ textAlign: 'center', marginBottom: '40px' }}>
                     <div style={{
@@ -126,7 +151,7 @@ const Login = ({ onLogin }) => {
                 </form>
 
                 <div style={{ textAlign: 'center', marginTop: '40px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <p style={{ fontSize: '10px', color: '#333', fontWeight: '800', letterSpacing: '0.1em' }}>
+                    <p style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: '800', letterSpacing: '0.1em' }}>
                         AXE REVENUE DATA SECURITY SYSTEM • V3.1
                     </p>
                 </div>

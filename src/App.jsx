@@ -68,7 +68,7 @@ function App() {
     };
 
     if (!isAuthenticated) {
-        return <Login onLogin={handleLogin} />;
+        return <Login onLogin={handleLogin} theme={theme} toggleTheme={toggleTheme} />;
     }
 
     return (

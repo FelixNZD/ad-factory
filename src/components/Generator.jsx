@@ -297,7 +297,7 @@ const Generator = ({ onComplete, setActiveTab, prefill, onClearPrefill }) => {
                                                 backgroundColor: '#000',
                                                 borderRadius: '12px',
                                                 overflow: 'hidden',
-                                                border: '1px solid #222'
+                                                border: '1px solid var(--border-color)'
                                             }}>
                                                 <video src={task.result?.videoUrl} controls poster={imagePreview} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                                             </div>
