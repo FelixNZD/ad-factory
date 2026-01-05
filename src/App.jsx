@@ -58,10 +58,10 @@ function App() {
             <main className="main-content">
                 <div className="container">
                     {activeTab === 'dashboard' && (
-                        <Dashboard history={history} onNavigate={() => setActiveTab('generator')} />
+                        <Dashboard history={history} onNavigate={setActiveTab} />
                     )}
                     {activeTab === 'generator' && (
-                        <Generator onComplete={handleComplete} />
+                        <Generator onComplete={handleComplete} setActiveTab={setActiveTab} />
                     )}
                     {activeTab === 'history' && (
                         <History history={history} />

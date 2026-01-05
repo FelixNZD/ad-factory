@@ -31,9 +31,9 @@ const AUSTRALIAN_LIFE_INSURANCE = {
     }
 };
 
-const Generator = ({ onComplete }) => {
+const Generator = ({ onComplete, setActiveTab }) => {
     const [gender, setGender] = useState('male');
-    const [script, setScript] = useState('');
+    const [snippets, setSnippets] = useState(['']);
     const [context, setContext] = useState('');
     const [imageFile, setImageFile] = useState(null);
     const [imagePreview, setImagePreview] = useState('');
@@ -43,10 +43,22 @@ const Generator = ({ onComplete }) => {
     const [result, setResult] = useState(null);
     const [progress, setProgress] = useState(0);
     const [errorMessage, setErrorMessage] = useState('');
+    const [batchTasks, setBatchTasks] = useState([]); // [{id, script, status, progress, result, error}]
     const fileInputRef = useRef(null);
 
     const messageIntervalRef = useRef(null);
     const consecutiveFailuresRef = useRef(0);
+    const isGeneratingBatchRef = useRef(false);
+
+    const updateSnippet = (index, value) => {
+        const newSnippets = [...snippets];
+        newSnippets[index] = value;
+        setSnippets(newSnippets);
+    };
+
+    const addSnippet = () => setSnippets([...snippets, '']);
+    const removeSnippet = (index) => setSnippets(snippets.filter((_, i) => i !== index));
+    const clearSnippets = () => setSnippets([]);
 
     const handleFileChange = (e) => {
         const file = e.target.files[0];
@@ -95,106 +107,112 @@ const Generator = ({ onComplete }) => {
     }, []);
 
     const handleGenerate = async () => {
-        if (!script || !imagePreview) return;
+        if (snippets.length === 0 || snippets.every(s => !s.trim()) || !imagePreview) return;
 
         setStatus('generating');
-        setProgress(5);
-        setCurrentStep('Initializing AI workflow...');
         setErrorMessage('');
-        consecutiveFailuresRef.current = 0;
+
+        // Initialize tasks
+        const initialTasks = snippets.map((s, i) => ({
+            id: i,
+            script: s,
+            status: 'preparing',
+            progress: 0,
+            result: null,
+            error: null,
+            displayName: `${AUSTRALIAN_LIFE_INSURANCE.name} ${i + 1}`
+        })).filter(t => t.script.trim().length > 0);
+
+        setBatchTasks(initialTasks);
+
+        // Run all tasks in parallel
+        initialTasks.forEach(task => executeTask(task, context, gender, aspectRatio, imagePreview));
+    };
+
+    const executeTask = async (task, currentContext, currentGender, currentAspectRatio, currentImagePreview) => {
+        const updateTask = (updates) => {
+            setBatchTasks(prev => prev.map(t => t.id === task.id ? { ...t, ...updates } : t));
+        };
 
         try {
-            const finalPrompt = AUSTRALIAN_LIFE_INSURANCE.basePrompt(script, context, gender);
+            updateTask({ status: 'submitting', progress: 5, error: null });
 
+            const finalPrompt = AUSTRALIAN_LIFE_INSURANCE.basePrompt(task.script, currentContext, currentGender);
             const response = await generateAdVideo(
-                { prompt: finalPrompt, imageUrl: imagePreview, model: 'veo3_fast', aspectRatio },
-                (step, prog) => {
-                    setCurrentStep(step);
-                    setProgress(prog);
-                }
+                { prompt: finalPrompt, imageUrl: currentImagePreview, model: 'veo3_fast', aspectRatio: currentAspectRatio },
+                (step, prog) => updateTask({ progress: prog })
             );
 
             if (!response.taskId) throw new Error('API failed to return a valid Task ID');
 
-            setCurrentStep(PRODUCTION_MESSAGES[0]);
-            setProgress(25);
-            startDynamicUpdates();
+            updateTask({ status: 'processing', progress: 25 });
 
-            const poll = async () => {
-                const interval = setInterval(async () => {
-                    try {
-                        const pollResponse = await pollTaskStatus(response.taskId);
-                        consecutiveFailuresRef.current = 0; // Reset failures on any successful polling response
+            let isTaskDone = false;
+            while (!isTaskDone) {
+                const pollResponse = await pollTaskStatus(response.taskId);
 
-                        if (pollResponse.status === 'completed' && pollResponse.videoUrl) {
-                            stopDynamicUpdates();
-                            clearInterval(interval);
-                            const finalResult = {
-                                videoUrl: pollResponse.videoUrl,
-                                taskId: response.taskId,
-                                timestamp: new Date().toISOString(),
-                                script,
-                                imageUrl: imagePreview,
-                                presetName: AUSTRALIAN_LIFE_INSURANCE.name,
-                                aspectRatio,
-                                gender
-                            };
-                            setResult(finalResult);
-                            setStatus('completed');
-                            setProgress(100);
-                            if (typeof onComplete === 'function') {
-                                onComplete(finalResult);
-                            }
-                        } else if (pollResponse.status === 'failed') {
-                            stopDynamicUpdates();
-                            clearInterval(interval);
-                            setStatus('error');
-                            setErrorMessage(pollResponse.error || 'Production failed on the server.');
-                        }
-                        if (pollResponse.progress > 0) {
-                            const mappedProgress = 25 + (pollResponse.progress * 0.73);
-                            setProgress(prev => Math.max(prev, mappedProgress));
-                        }
-                    } catch (pollErr) {
-                        console.error('Polling error:', pollErr);
-                        consecutiveFailuresRef.current += 1;
-
-                        // If polling fails 5 times in a row, suggest a manual refresh or check network
-                        if (consecutiveFailuresRef.current >= 5) {
-                            stopDynamicUpdates();
-                            clearInterval(interval);
-                            setStatus('error');
-                            setErrorMessage('Connection lost during production. Please check your network or try again.');
-                        }
+                if (pollResponse.status === 'completed' && pollResponse.videoUrl) {
+                    const finalResult = {
+                        videoUrl: pollResponse.videoUrl,
+                        taskId: response.taskId,
+                        timestamp: new Date().toISOString(),
+                        script: task.script,
+                        imageUrl: currentImagePreview,
+                        presetName: task.displayName,
+                        aspectRatio: currentAspectRatio,
+                        gender: currentGender
+                    };
+                    updateTask({ status: 'completed', progress: 100, result: finalResult });
+                    if (typeof onComplete === 'function') {
+                        onComplete(finalResult);
                     }
-                }, 5000);
-            };
+                    isTaskDone = true;
+                } else if (pollResponse.status === 'failed') {
+                    throw new Error(pollResponse.error || 'Production failed.');
+                }
 
-            poll();
+                if (pollResponse.progress > 0) {
+                    updateTask({ progress: 25 + (pollResponse.progress * 0.73) });
+                }
 
+                if (!isTaskDone) await new Promise(r => setTimeout(r, 5000));
+            }
         } catch (err) {
-            stopDynamicUpdates();
-            console.error(err);
-            setStatus('error');
-            setErrorMessage(err.message || 'Connection failed.');
+            console.error(`Task ${task.id} error:`, err);
+            updateTask({ status: 'error', error: err.message || 'Generation failed' });
         }
+    };
+
+    const handleRegenerateTask = (task) => {
+        executeTask(task, context, gender, aspectRatio, imagePreview);
     };
 
     const handleReset = () => {
         setStatus('idle');
         setResult(null);
         setProgress(0);
-        setScript('');
+        setSnippets(['']);
         setContext('');
         setCurrentStep('');
+        setBatchTasks([]);
         removeImage();
         consecutiveFailuresRef.current = 0;
+        isGeneratingBatchRef.current = false;
     };
 
     const handleDownload = async (url, filename) => {
+        if (!url) return;
         try {
             const response = await fetch(url);
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
             const blob = await response.blob();
+            // If the blob is very small and contains text, it might be an error page
+            if (blob.type.includes('text') && blob.size < 1000) {
+                window.open(url, '_blank');
+                return;
+            }
+
             const blobUrl = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = blobUrl;
@@ -219,52 +237,205 @@ const Generator = ({ onComplete }) => {
                 <p style={{ color: 'var(--text-muted)' }}>Veo 3.1 Pro Engine • Automated UGC Workflow</p>
             </header>
 
-            <div style={{ display: 'grid', gridTemplateColumns: status === 'completed' ? '1fr' : '1.2fr 0.8fr', gap: '40px' }}>
-                {status === 'completed' ? (
-                    <div className="card animate-slide-up" style={{ textAlign: 'center' }}>
-                        <div style={{ marginBottom: '32px' }}>
-                            <div style={{ width: '80px', height: '80px', borderRadius: '50%', backgroundColor: 'rgba(16, 185, 129, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto' }}>
-                                <CheckCircle2 size={40} color="#10b981" />
+            <div style={{ display: 'grid', gridTemplateColumns: status === 'generating' || status === 'completed' ? '1fr' : '1.2fr 0.8fr', gap: '40px' }}>
+                {status === 'generating' || status === 'completed' ? (
+                    <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                        <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                                <h2 style={{ fontSize: '24px', fontWeight: '800' }}>
+                                    {batchTasks.length > 0 && batchTasks.every(t => t.status === 'completed' || t.status === 'error') ? 'Production Finished' : 'Producing Batch Clips...'}
+                                </h2>
+                                <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>
+                                    {batchTasks.length > 0 ? `${batchTasks.filter(t => t.status === 'completed').length} of ${batchTasks.length} clips ready` : 'Initializing...'}
+                                </p>
                             </div>
-                            <h2 style={{ fontSize: '28px', fontWeight: '800', marginTop: '20px' }}>Production Ready!</h2>
-                            <p style={{ color: 'var(--text-muted)', marginTop: '4px' }}>Your AI ad is ready for download.</p>
+                            <button onClick={handleReset} className="btn-primary" style={{ padding: '10px 20px', fontSize: '13px' }}>
+                                Start New Batch
+                            </button>
                         </div>
 
-                        <div style={{
-                            aspectRatio: aspectRatio.replace(':', '/'),
-                            maxWidth: aspectRatio === '9:16' ? '300px' : '600px',
-                            backgroundColor: '#000',
-                            borderRadius: '12px',
-                            marginBottom: '32px',
-                            overflow: 'hidden',
-                            boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
-                            border: '1px solid #333',
-                            margin: '0 auto 32px auto'
-                        }}>
-                            <video src={result?.videoUrl} controls style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', gap: '16px' }}>
+                            {batchTasks.map((task) => (
+                                <div key={task.id} className="card animate-fade-in" style={{
+                                    opacity: task.status === 'error' ? 0.7 : 1,
+                                    border: task.status === 'completed' ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid var(--border-color)',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '16px'
+                                }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                                <span style={{ fontSize: '12px', fontWeight: '800', color: 'var(--text-muted)' }}>#{task.id + 1}</span>
+                                                <h4 style={{ fontSize: '15px', fontWeight: '700' }}>{task.displayName}</h4>
+                                            </div>
+                                            <p style={{
+                                                fontSize: '12px',
+                                                color: 'var(--text-muted)',
+                                                display: '-webkit-box',
+                                                WebkitLineClamp: 1,
+                                                WebkitBoxOrient: 'vertical',
+                                                overflow: 'hidden'
+                                            }}>{task.script}</p>
+                                        </div>
+                                        <div style={{
+                                            padding: '4px 8px',
+                                            borderRadius: '4px',
+                                            fontSize: '10px',
+                                            fontWeight: '800',
+                                            backgroundColor:
+                                                task.status === 'completed' ? 'rgba(16, 185, 129, 0.1)' :
+                                                    task.status === 'error' ? 'rgba(255, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.05)',
+                                            color:
+                                                task.status === 'completed' ? '#10b981' :
+                                                    task.status === 'error' ? '#ff3333' : '#888'
+                                        }}>
+                                            {task.status.toUpperCase()}
+                                        </div>
+                                    </div>
 
-                        <div style={{ display: 'flex', gap: '16px', justifyContent: 'center' }}>
-                            <button onClick={() => handleDownload(result?.videoUrl, `ad-${result?.timestamp}.mp4`)} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 28px' }}>
-                                <Download size={20} /> Download MP4
-                            </button>
-                            <button onClick={handleReset} className="card" style={{ padding: '14px 28px', backgroundColor: 'transparent' }}>
-                                Start New
-                            </button>
+                                    {task.status === 'completed' ? (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                            <div style={{
+                                                width: '100%',
+                                                aspectRatio: aspectRatio.replace(':', '/'),
+                                                backgroundColor: '#000',
+                                                borderRadius: '8px',
+                                                overflow: 'hidden',
+                                                border: '1px solid #333'
+                                            }}>
+                                                <video
+                                                    src={task.result?.videoUrl}
+                                                    controls
+                                                    poster={imagePreview}
+                                                    style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                                                />
+                                            </div>
+                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                <button
+                                                    onClick={() => handleDownload(task.result?.videoUrl, `ad-${task.id + 1}.mp4`)}
+                                                    className="btn-primary"
+                                                    style={{ flex: 1, padding: '10px', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                                                >
+                                                    <Download size={16} /> Download
+                                                </button>
+                                                <button
+                                                    onClick={() => handleRegenerateTask(task)}
+                                                    className="card"
+                                                    disabled={status === 'generating'}
+                                                    style={{ padding: '10px', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', border: '1px solid #333', backgroundColor: 'transparent' }}
+                                                >
+                                                    <RefreshCw size={16} /> Regenerate
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : task.status === 'error' ? (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                            <div style={{ padding: '10px', backgroundColor: 'rgba(255, 0, 0, 0.05)', borderRadius: '8px', fontSize: '12px', color: '#ff3333', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                <AlertCircle size={14} /> {task.error}
+                                            </div>
+                                            <button
+                                                onClick={() => handleRegenerateTask(task)}
+                                                className="btn-primary"
+                                                style={{ width: '100%', padding: '10px', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                                            >
+                                                <RefreshCw size={16} /> Retry Clip
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                            <div style={{ width: '100%', height: '4px', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '2px', overflow: 'hidden' }}>
+                                                <div style={{
+                                                    width: `${task.progress}%`,
+                                                    height: '100%',
+                                                    backgroundColor: 'var(--primary-color)',
+                                                    transition: 'width 0.3s ease'
+                                                }} />
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <span style={{ fontSize: '10px', color: '#555' }}>Processing...</span>
+                                                <span style={{ fontSize: '10px', fontWeight: '700', color: '#555' }}>{Math.floor(task.progress)}%</span>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
                         </div>
                     </div>
                 ) : (
                     <>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                <label style={{ fontSize: '13px', fontWeight: '800', color: 'var(--text-muted)' }}>VOICE SCRIPT</label>
-                                <textarea
-                                    placeholder="Paste your life insurance script here..."
-                                    style={{ height: '200px', resize: 'none', lineHeight: '1.6', fontSize: '16px', padding: '20px' }}
-                                    value={script}
-                                    onChange={(e) => setScript(e.target.value)}
-                                    disabled={status === 'generating'}
-                                />
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <label style={{ fontSize: '11px', fontWeight: '800', color: 'var(--text-muted)', letterSpacing: '0.05em' }}>VOICE SCRIPTS ({snippets.length})</label>
+                                    {snippets.length > 0 && <button onClick={clearSnippets} style={{ fontSize: '10px', color: 'var(--primary-color)', background: 'none', border: 'none', fontWeight: '700' }}>CLEAR ALL</button>}
+                                </div>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                    {snippets.map((snippet, idx) => (
+                                        <div key={idx} className="card" style={{ padding: '12px', display: 'flex', gap: '12px', alignItems: 'flex-start', backgroundColor: 'rgba(255,255,255,0.01)' }}>
+                                            <div style={{
+                                                width: '24px',
+                                                height: '24px',
+                                                borderRadius: '6px',
+                                                backgroundColor: 'rgba(255,255,255,0.05)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                fontSize: '11px',
+                                                fontWeight: '800',
+                                                color: '#444'
+                                            }}>
+                                                {idx + 1}
+                                            </div>
+                                            <textarea
+                                                value={snippet}
+                                                onChange={(e) => updateSnippet(idx, e.target.value)}
+                                                disabled={status === 'generating'}
+                                                style={{
+                                                    flex: 1,
+                                                    minHeight: '60px',
+                                                    padding: '8px',
+                                                    fontSize: '13px',
+                                                    backgroundColor: 'transparent',
+                                                    border: 'none',
+                                                    lineHeight: '1.5'
+                                                }}
+                                            />
+                                            <button
+                                                onClick={() => removeSnippet(idx)}
+                                                disabled={status === 'generating'}
+                                                style={{ padding: '4px', background: 'none', border: 'none', opacity: 0.3 }}
+                                            >
+                                                <X size={14} />
+                                            </button>
+                                        </div>
+                                    ))}
+
+                                    {snippets.length > 0 && (
+                                        <button
+                                            onClick={addSnippet}
+                                            disabled={status === 'generating'}
+                                            style={{
+                                                padding: '12px',
+                                                borderRadius: '12px',
+                                                border: '1px dashed #333',
+                                                backgroundColor: 'transparent',
+                                                color: '#666',
+                                                fontSize: '13px',
+                                                fontWeight: '600'
+                                            }}
+                                        >
+                                            + Add Another Clip
+                                        </button>
+                                    )}
+
+                                    {snippets.length === 0 && (
+                                        <div style={{ padding: '40px', textAlign: 'center', color: '#333', border: '1px dashed #222', borderRadius: '12px' }}>
+                                            Add a script above to get started
+                                        </div>
+                                    )}
+                                </div>
                             </div>
 
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -397,7 +568,7 @@ const Generator = ({ onComplete }) => {
                                     onClick={handleGenerate}
                                     className="btn-primary"
                                     style={{ width: '100%', padding: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}
-                                    disabled={!script || !imagePreview || status === 'generating'}
+                                    disabled={snippets.length === 0 || !imagePreview || status === 'generating'}
                                 >
                                     {status === 'generating' ? (
                                         <div style={{ textAlign: 'center' }}>
@@ -408,7 +579,7 @@ const Generator = ({ onComplete }) => {
                                             <div style={{ fontSize: '10px', opacity: 0.7, marginTop: '2px' }}>{currentStep}</div>
                                         </div>
                                     ) : (
-                                        <>Generate Ad <Send size={18} /></>
+                                        <>Bulk Generate <Send size={18} /></>
                                     )}
                                 </button>
                             </div>

@@ -3,9 +3,18 @@ import { Download, RefreshCw, Trash2, ExternalLink } from 'lucide-react';
 
 const History = ({ history }) => {
     const handleDownload = async (url, filename) => {
+        if (!url) return;
         try {
             const response = await fetch(url);
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
             const blob = await response.blob();
+            // If the blob is very small and contains text, it might be an error page
+            if (blob.type.includes('text') && blob.size < 1000) {
+                window.open(url, '_blank');
+                return;
+            }
+
             const blobUrl = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = blobUrl;
