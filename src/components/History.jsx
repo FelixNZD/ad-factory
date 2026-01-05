@@ -1,5 +1,5 @@
 import React from 'react';
-import { Download, RefreshCw, Trash2, ExternalLink } from 'lucide-react';
+import { Download, RefreshCw, Trash2, Play } from 'lucide-react';
 
 const History = ({ history, onRegenerate }) => {
     const [playingId, setPlayingId] = React.useState(null);
@@ -64,8 +64,8 @@ const History = ({ history, onRegenerate }) => {
                                     >
                                         <img src={item.imageUrl} alt="Reference" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.6 }} />
                                         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                            <div style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: 'rgba(255, 0, 0, 0.4)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(255,255,255,0.1)' }}>
-                                                <ExternalLink size={20} />
+                                            <div style={{ width: '56px', height: '56px', borderRadius: '50%', backgroundColor: 'rgba(255, 0, 0, 0.5)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(255,255,255,0.1)', transition: 'all 0.2s ease' }}>
+                                                <Play size={24} fill="white" color="white" />
                                             </div>
                                         </div>
                                     </div>
@@ -103,11 +103,11 @@ const History = ({ history, onRegenerate }) => {
                                     <button onClick={() => handleDownload(item.videoUrl, `ad-${item.timestamp}.mp4`)} className="btn-primary" style={{ padding: '10px 20px', fontSize: '13px' }}>
                                         <Download size={14} /> Download MP4
                                     </button>
-                                    <button onClick={() => onRegenerate(item)} className="card" style={{ padding: '10px 14px', fontSize: '13px', border: '1px solid #222' }}>
-                                        <RefreshCw size={14} />
+                                    <button onClick={() => onRegenerate(item)} className="card" style={{ padding: '10px 14px', fontSize: '13px', border: '1px solid var(--border-color)' }}>
+                                        <RefreshCw size={14} color="var(--text-color)" />
                                     </button>
-                                    <button className="card" style={{ padding: '10px 14px', fontSize: '13px', border: '1px solid #222' }}>
-                                        <Trash2 size={14} />
+                                    <button className="card" style={{ padding: '10px 14px', fontSize: '13px', border: '1px solid var(--border-color)' }}>
+                                        <Trash2 size={14} color="var(--text-color)" />
                                     </button>
                                 </div>
                             </div>

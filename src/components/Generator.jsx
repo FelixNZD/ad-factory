@@ -308,10 +308,10 @@ const Generator = ({ onComplete, setActiveTab, prefill, onClearPrefill }) => {
                                                 <button
                                                     onClick={() => handleRegenerateTask(task)}
                                                     className="btn-primary"
-                                                    style={{ padding: '10px', backgroundColor: 'var(--surface-color)', border: '1px solid #333' }}
+                                                    style={{ padding: '10px', backgroundColor: 'var(--surface-color)', border: '1px solid var(--border-color)' }}
                                                     title="Regenerate this clip"
                                                 >
-                                                    <RefreshCw size={16} color="var(--text-muted)" />
+                                                    <RefreshCw size={16} color="var(--text-color)" />
                                                 </button>
                                             </div>
                                         </div>
@@ -321,7 +321,7 @@ const Generator = ({ onComplete, setActiveTab, prefill, onClearPrefill }) => {
                                                 <AlertCircle size={14} /> {task.error}
                                             </div>
                                             <button onClick={() => handleRegenerateTask(task)} className="btn-primary" style={{ width: '100%' }}>
-                                                <RefreshCw size={16} /> Retry Clip
+                                                <RefreshCw size={16} color="white" /> Retry Clip
                                             </button>
                                         </div>
                                     ) : (
@@ -351,7 +351,7 @@ const Generator = ({ onComplete, setActiveTab, prefill, onClearPrefill }) => {
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                     {snippets.map((snippet, idx) => (
                                         <div key={idx} className="card" style={{ padding: '12px', display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-                                            <div style={{ width: '24px', height: '24px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '800', color: '#555' }}>
+                                            <div style={{ width: '24px', height: '24px', borderRadius: '6px', backgroundColor: 'var(--surface-hover)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '800', color: 'var(--text-muted)' }}>
                                                 {idx + 1}
                                             </div>
                                             <textarea
@@ -374,7 +374,7 @@ const Generator = ({ onComplete, setActiveTab, prefill, onClearPrefill }) => {
                                 <label className="label-caps">ACTOR IMAGE</label>
                                 {!imagePreview ? (
                                     <div onDragOver={handleDragOver} onDrop={handleDrop} onClick={() => fileInputRef.current?.click()} className="upload-zone">
-                                        <Upload size={32} color="#333" style={{ marginBottom: '12px' }} />
+                                        <Upload size={32} color="var(--text-muted)" style={{ marginBottom: '12px' }} />
                                         <p style={{ fontWeight: '600', fontSize: '14px' }}>Drop actor image or click</p>
                                         <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" style={{ display: 'none' }} />
                                     </div>
@@ -418,7 +418,7 @@ const Generator = ({ onComplete, setActiveTab, prefill, onClearPrefill }) => {
                                                     padding: '12px',
                                                     borderColor: gender === g ? 'var(--primary-color)' : 'var(--border-color)',
                                                     backgroundColor: gender === g ? 'rgba(255,0,0,0.05)' : 'transparent',
-                                                    color: gender === g ? '#fff' : 'var(--text-muted)',
+                                                    color: gender === g ? 'var(--primary-color)' : 'var(--text-muted)',
                                                     textTransform: 'capitalize',
                                                     fontWeight: '600'
                                                 }}
@@ -447,7 +447,7 @@ const Generator = ({ onComplete, setActiveTab, prefill, onClearPrefill }) => {
                                                         padding: '12px',
                                                         borderColor: isSelected ? 'var(--primary-color)' : 'var(--border-color)',
                                                         backgroundColor: isSelected ? 'rgba(255,0,0,0.05)' : 'transparent',
-                                                        color: isSelected ? '#fff' : 'var(--text-muted)',
+                                                        color: isSelected ? 'var(--primary-color)' : 'var(--text-muted)',
                                                         textAlign: 'left'
                                                     }}
                                                 >

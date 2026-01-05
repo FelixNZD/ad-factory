@@ -10,6 +10,25 @@
     --accent-red: #ff3333;
     --success-color: #10b981;
     --error-color: #ff3333;
+    --sidebar-bg: var(--surface-color);
+    --input-bg: var(--surface-color);
+    --card-hover-border: #333333;
+    --icon-color: #ffffff;
+}
+
+[data-theme='light'] {
+    --bg-color: #f8f9fa;
+    --surface-color: #ffffff;
+    --surface-hover: #f1f3f5;
+    --primary-color: #ff0000;
+    --primary-hover: #cc0000;
+    --text-color: #1a1a1a;
+    --text-muted: #64748b;
+    --border-color: #e2e8f0;
+    --sidebar-bg: #ffffff;
+    --input-bg: #ffffff;
+    --card-hover-border: #cbd5e1;
+    --icon-color: #1a1a1a;
 }
 
 * {
@@ -92,7 +111,7 @@ h4,
 .sidebar {
     width: 260px;
     height: 100vh;
-    background-color: var(--surface-color);
+    background-color: var(--sidebar-bg);
     border-right: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
@@ -141,7 +160,7 @@ h4,
 
 .nav-item:hover {
     color: var(--text-color);
-    background-color: rgba(255, 255, 255, 0.03);
+    background-color: var(--surface-hover);
 }
 
 .nav-item.active {
@@ -153,7 +172,7 @@ h4,
 .sidebar-footer {
     margin-top: auto;
     padding-top: 20px;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    border-top: 1px solid var(--border-color);
 }
 
 /* Card System */
@@ -166,7 +185,7 @@ h4,
 }
 
 .card:hover {
-    border-color: #333;
+    border-color: var(--card-hover-border);
 }
 
 .card-ghost {
@@ -222,7 +241,7 @@ input,
 textarea,
 select {
     font-family: inherit;
-    background-color: var(--surface-color);
+    background-color: var(--input-bg);
     border: 1px solid var(--border-color);
     color: var(--text-color);
     border-radius: 12px;

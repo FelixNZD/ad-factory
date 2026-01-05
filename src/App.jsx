@@ -22,10 +22,22 @@ function App() {
     });
 
     const [prefillData, setPrefillData] = useState(null);
+    const [theme, setTheme] = useState(() => {
+        return localStorage.getItem('ad_factory_theme') || 'dark';
+    });
 
     useEffect(() => {
         localStorage.setItem('ad_history', JSON.stringify(history));
     }, [history]);
+
+    useEffect(() => {
+        document.documentElement.setAttribute('data-theme', theme);
+        localStorage.setItem('ad_factory_theme', theme);
+    }, [theme]);
+
+    const toggleTheme = () => {
+        setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+    };
 
     const handleComplete = (newVideo) => {
         setHistory(prev => [newVideo, ...prev]);
@@ -66,6 +78,8 @@ function App() {
                 setActiveTab={setActiveTab}
                 user={user}
                 onLogout={handleLogout}
+                theme={theme}
+                toggleTheme={toggleTheme}
             />
             <main className="main-content">
                 <div className="container">
