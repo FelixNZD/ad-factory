@@ -1,20 +1,19 @@
 import React from 'react';
 import { Download, RefreshCw, Trash2, ExternalLink } from 'lucide-react';
 
-const History = ({ history }) => {
+const History = ({ history, onRegenerate }) => {
+    const [playingId, setPlayingId] = React.useState(null);
+
     const handleDownload = async (url, filename) => {
         if (!url) return;
         try {
             const response = await fetch(url);
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-
             const blob = await response.blob();
-            // If the blob is very small and contains text, it might be an error page
             if (blob.type.includes('text') && blob.size < 1000) {
                 window.open(url, '_blank');
                 return;
             }
-
             const blobUrl = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = blobUrl;
@@ -25,34 +24,65 @@ const History = ({ history }) => {
             window.URL.revokeObjectURL(blobUrl);
         } catch (error) {
             console.error('Download failed:', error);
-            // Fallback: Open in new tab if blob download fails
             window.open(url, '_blank');
         }
     };
 
     return (
-        <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
-            <header style={{ marginBottom: '40px' }}>
-                <h1 style={{ fontSize: '32px', fontWeight: '800', marginBottom: '8px' }}>Generation History</h1>
-                <p style={{ color: 'var(--text-muted)' }}>Manage and download your previous AI UGC ads</p>
+        <div className="container animate-fade-in">
+            <header className="section-header">
+                <h1 className="section-title">Generation History</h1>
+                <p className="section-subtitle">Manage and download your previous AI UGC ads</p>
             </header>
 
             {history.length > 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                     {history.map((item, i) => (
-                        <div key={i} className="card" style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
-                            <div style={{ width: '120px', aspectRatio: '9/16', backgroundColor: '#222', borderRadius: '4px', overflow: 'hidden' }}>
-                                <img src={item.imageUrl} alt="Ref" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.5 }} />
+                        <div key={i} className="card animate-slide-up" style={{ display: 'flex', gap: '24px', alignItems: 'stretch', animationDelay: `${i * 0.05}s` }}>
+                            <div style={{
+                                width: '200px',
+                                aspectRatio: item.aspectRatio ? item.aspectRatio.replace(':', '/') : '9/16',
+                                backgroundColor: '#000',
+                                borderRadius: '12px',
+                                overflow: 'hidden',
+                                flexShrink: 0,
+                                border: '1px solid var(--border-color)',
+                                position: 'relative'
+                            }}>
+                                {playingId === i ? (
+                                    <video
+                                        src={item.videoUrl}
+                                        controls
+                                        autoPlay
+                                        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                                        onPause={() => setPlayingId(null)}
+                                    />
+                                ) : (
+                                    <div
+                                        onClick={() => setPlayingId(i)}
+                                        style={{ width: '100%', height: '100%', cursor: 'pointer', position: 'relative' }}
+                                    >
+                                        <img src={item.imageUrl} alt="Reference" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.6 }} />
+                                        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            <div style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: 'rgba(255, 0, 0, 0.4)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                                <ExternalLink size={20} />
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
-                            <div style={{ flex: 1 }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
                                     <div>
-                                        <h3 style={{ fontSize: '18px', fontWeight: '700' }}>{item.presetName}</h3>
-                                        <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{new Date(item.timestamp).toLocaleString()}</div>
+                                        <h3 style={{ fontSize: '18px', fontWeight: '800', marginBottom: '4px' }}>{item.presetName}</h3>
+                                        <div style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <div className="status-dot" style={{ width: '4px', height: '4px' }}></div>
+                                            {new Date(item.timestamp).toLocaleString()}
+                                        </div>
                                     </div>
-                                    <div style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '700' }}>
-                                        SUCCESS
+                                    <div style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', color: 'var(--success-color)', padding: '6px 10px', borderRadius: '6px', fontSize: '10px', fontWeight: '800' }}>
+                                        READY
                                     </div>
                                 </div>
 
@@ -63,23 +93,20 @@ const History = ({ history }) => {
                                     WebkitLineClamp: 2,
                                     WebkitBoxOrient: 'vertical',
                                     overflow: 'hidden',
-                                    marginBottom: '16px'
+                                    marginBottom: '20px',
+                                    lineHeight: '1.6'
                                 }}>
                                     {item.script}
                                 </p>
 
                                 <div style={{ display: 'flex', gap: '12px' }}>
-                                    <button
-                                        onClick={() => handleDownload(item.videoUrl, `ad-${item.timestamp}.mp4`)}
-                                        className="btn-primary"
-                                        style={{ padding: '8px 16px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}
-                                    >
-                                        <Download size={14} /> Download
+                                    <button onClick={() => handleDownload(item.videoUrl, `ad-${item.timestamp}.mp4`)} className="btn-primary" style={{ padding: '10px 20px', fontSize: '13px' }}>
+                                        <Download size={14} /> Download MP4
                                     </button>
-                                    <button className="card" style={{ padding: '8px 16px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                        <RefreshCw size={14} /> Regenerate
+                                    <button onClick={() => onRegenerate(item)} className="card" style={{ padding: '10px 14px', fontSize: '13px', border: '1px solid #222' }}>
+                                        <RefreshCw size={14} />
                                     </button>
-                                    <button className="card" style={{ padding: '8px', color: 'var(--text-muted)' }}>
+                                    <button className="card" style={{ padding: '10px 14px', fontSize: '13px', border: '1px solid #222' }}>
                                         <Trash2 size={14} />
                                     </button>
                                 </div>
@@ -88,12 +115,12 @@ const History = ({ history }) => {
                     ))}
                 </div>
             ) : (
-                <div className="card" style={{ textAlign: 'center', padding: '80px', color: 'var(--text-muted)' }}>
-                    <div style={{ marginBottom: '16px', opacity: 0.3 }}>
-                        {/* Icon placeholder */}
+                <div className="card card-ghost" style={{ textAlign: 'center', padding: '80px 20px' }}>
+                    <div style={{ opacity: 0.2, marginBottom: '16px' }}>
+                        <History size={48} style={{ margin: '0 auto' }} />
                     </div>
-                    <h3>No history found</h3>
-                    <p>Your generated videos will appear here.</p>
+                    <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '8px' }}>No history found</h3>
+                    <p className="section-subtitle">Your generated videos will appear here once you start production.</p>
                 </div>
             )}
         </div>

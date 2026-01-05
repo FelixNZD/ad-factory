@@ -21,12 +21,24 @@ function App() {
         return savedUser ? JSON.parse(savedUser) : null;
     });
 
+    const [prefillData, setPrefillData] = useState(null);
+
     useEffect(() => {
         localStorage.setItem('ad_history', JSON.stringify(history));
     }, [history]);
 
     const handleComplete = (newVideo) => {
         setHistory(prev => [newVideo, ...prev]);
+    };
+
+    const handleRegenerate = (video) => {
+        setPrefillData({
+            snippets: [video.script],
+            gender: video.gender,
+            aspectRatio: video.aspectRatio,
+            imagePreview: video.imageUrl
+        });
+        setActiveTab('generator');
     };
 
     const handleLogin = (userData) => {
@@ -61,10 +73,15 @@ function App() {
                         <Dashboard history={history} onNavigate={setActiveTab} />
                     )}
                     {activeTab === 'generator' && (
-                        <Generator onComplete={handleComplete} setActiveTab={setActiveTab} />
+                        <Generator
+                            onComplete={handleComplete}
+                            setActiveTab={setActiveTab}
+                            prefill={prefillData}
+                            onClearPrefill={() => setPrefillData(null)}
+                        />
                     )}
                     {activeTab === 'history' && (
-                        <History history={history} />
+                        <History history={history} onRegenerate={handleRegenerate} />
                     )}
                 </div>
             </main>
