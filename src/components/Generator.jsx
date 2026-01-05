@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Send, Loader2, CheckCircle2, AlertCircle, Download, RefreshCw, Sparkles, Upload, FileImage, X, Monitor, Smartphone, Square } from 'lucide-react';
+import { Camera, Send, Loader2, CheckCircle2, AlertCircle, Download, RefreshCw, Sparkles, Upload, FileImage, X, Monitor, Smartphone, Square, FileArchive } from 'lucide-react';
 import { generateAdVideo, pollTaskStatus } from '../services/kieService';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 
 const ASPECT_RATIOS = [
     { id: '9:16', label: 'Vertical (9:16)', description: 'TikTok, Reels, Shorts', icon: Smartphone },
@@ -132,7 +134,7 @@ const Generator = ({ onComplete, setActiveTab, prefill, onClearPrefill }) => {
             progress: 0,
             result: null,
             error: null,
-            displayName: `${AUSTRALIAN_LIFE_INSURANCE.name} ${i + 1}`
+            displayName: `Clip ${i + 1}`
         })).filter(t => t.script.trim().length > 0);
 
         setBatchTasks(initialTasks);
@@ -213,6 +215,33 @@ const Generator = ({ onComplete, setActiveTab, prefill, onClearPrefill }) => {
         isGeneratingBatchRef.current = false;
     };
 
+    const handleDownloadAll = async () => {
+        const completedTasks = batchTasks.filter(t => t.status === 'completed' && t.result?.videoUrl);
+        if (completedTasks.length === 0) return;
+
+        const zip = new JSZip();
+        const folder = zip.folder("ad-clips");
+
+        setStatus('zipping'); // Temporary status for UI feedback
+
+        try {
+            const downloadPromises = completedTasks.map(async (task, idx) => {
+                const response = await fetch(task.result.videoUrl);
+                const blob = await response.blob();
+                folder.file(`Clip ${task.id + 1}.mp4`, blob);
+            });
+
+            await Promise.all(downloadPromises);
+            const content = await zip.generateAsync({ type: "blob" });
+            saveAs(content, "ai-ad-clips.zip");
+        } catch (error) {
+            console.error('Error creating zip:', error);
+            alert('Failed to create zip file. Individual downloads are still available.');
+        } finally {
+            setStatus('completed');
+        }
+    };
+
     const handleDownload = async (url, filename) => {
         if (!url) return;
         try {
@@ -249,8 +278,8 @@ const Generator = ({ onComplete, setActiveTab, prefill, onClearPrefill }) => {
                 <p className="section-subtitle">Veo 3.1 Pro Engine • Automated UGC Workflow</p>
             </header>
 
-            <div className={status === 'generating' || status === 'completed' ? '' : 'grid-2-cols'}>
-                {status === 'generating' || status === 'completed' ? (
+            <div className={['generating', 'completed', 'zipping'].includes(status) ? '' : 'grid-2-cols'}>
+                {['generating', 'completed', 'zipping'].includes(status) ? (
                     <div className="animate-slide-up" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                         <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div>
@@ -261,9 +290,35 @@ const Generator = ({ onComplete, setActiveTab, prefill, onClearPrefill }) => {
                                     {batchTasks.filter(t => t.status === 'completed').length} of {batchTasks.length} clips ready
                                 </p>
                             </div>
-                            <button onClick={handleReset} className="btn-primary" style={{ padding: '8px 16px', fontSize: '13px' }}>
-                                Start New Batch
-                            </button>
+                            <div style={{ display: 'flex', gap: '12px' }}>
+                                {batchTasks.some(t => t.status === 'completed') && (
+                                    <button
+                                        onClick={handleDownloadAll}
+                                        className="btn-primary"
+                                        style={{
+                                            padding: '8px 16px',
+                                            fontSize: '13px',
+                                            backgroundColor: 'var(--surface-color)',
+                                            border: '1px solid var(--border-color)',
+                                            color: 'var(--text-color)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px'
+                                        }}
+                                        disabled={status === 'zipping'}
+                                    >
+                                        {status === 'zipping' ? (
+                                            <Loader2 size={14} className="animate-spin" />
+                                        ) : (
+                                            <FileArchive size={14} />
+                                        )}
+                                        Download All (.ZIP)
+                                    </button>
+                                )}
+                                <button onClick={handleReset} className="btn-primary" style={{ padding: '8px 16px', fontSize: '13px' }}>
+                                    Start New Batch
+                                </button>
+                            </div>
                         </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))', gap: '20px' }}>
@@ -302,7 +357,7 @@ const Generator = ({ onComplete, setActiveTab, prefill, onClearPrefill }) => {
                                                 <video src={task.result?.videoUrl} controls poster={imagePreview} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                                             </div>
                                             <div style={{ display: 'flex', gap: '10px' }}>
-                                                <button onClick={() => handleDownload(task.result?.videoUrl, `ad-${task.id + 1}.mp4`)} className="btn-primary" style={{ flex: 1, padding: '10px' }}>
+                                                <button onClick={() => handleDownload(task.result?.videoUrl, `Clip ${task.id + 1}.mp4`)} className="btn-primary" style={{ flex: 1, padding: '10px' }}>
                                                     <Download size={16} /> Download
                                                 </button>
                                                 <button
