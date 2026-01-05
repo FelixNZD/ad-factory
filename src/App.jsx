@@ -4,6 +4,7 @@ import Dashboard from './components/Dashboard';
 import Generator from './components/Generator';
 import History from './components/History';
 import Login from './components/Login';
+import { supabase, getGenerations, saveGeneration, deleteGeneration } from './services/supabase';
 
 function App() {
     const [activeTab, setActiveTab] = useState('dashboard');
@@ -27,6 +28,43 @@ function App() {
     });
 
     useEffect(() => {
+        // Load local history first for immediate UI
+        const saved = localStorage.getItem('ad_history');
+        if (saved) {
+            setHistory(JSON.parse(saved));
+        }
+
+        // Then fetch from Supabase if configured
+        const syncHistory = async () => {
+            if (supabase) {
+                const cloudHistory = await getGenerations();
+                if (cloudHistory.length > 0) {
+                    setHistory(cloudHistory);
+                    localStorage.setItem('ad_history', JSON.stringify(cloudHistory));
+                }
+            }
+        };
+
+        syncHistory();
+
+        // Optional: Real-time subscription for "view each others generations" live
+        let subscription;
+        if (supabase) {
+            subscription = supabase
+                .channel('generations_changes')
+                .on('postgres_changes', { event: '*', table: 'generations' }, () => {
+                    syncHistory();
+                })
+                .subscribe();
+        }
+
+        return () => {
+            if (subscription) supabase.removeChannel(subscription);
+        };
+    }, []);
+
+    // Save local backup whenever history changes
+    useEffect(() => {
         localStorage.setItem('ad_history', JSON.stringify(history));
     }, [history]);
 
@@ -39,8 +77,11 @@ function App() {
         setTheme(prev => prev === 'dark' ? 'light' : 'dark');
     };
 
-    const handleComplete = (newVideo) => {
+    const handleComplete = async (newVideo) => {
         setHistory(prev => [newVideo, ...prev]);
+        if (supabase && user) {
+            await saveGeneration(newVideo, user.email);
+        }
     };
 
     const handleRegenerate = (video) => {
@@ -53,9 +94,12 @@ function App() {
         setActiveTab('generator');
     };
 
-    const handleDelete = (timestamp) => {
+    const handleDelete = async (timestamp) => {
         if (window.confirm('Are you sure you want to delete this record from your history?')) {
             setHistory(prev => prev.filter(item => item.timestamp !== timestamp));
+            if (supabase) {
+                await deleteGeneration(timestamp);
+            }
         }
     };
 
