@@ -65,7 +65,19 @@ function App() {
 
     // Save local backup whenever history changes
     useEffect(() => {
-        localStorage.setItem('ad_history', JSON.stringify(history));
+        try {
+            localStorage.setItem('ad_history', JSON.stringify(history));
+        } catch (e) {
+            console.error('Failed to save history to localStorage:', e);
+            if (e.name === 'QuotaExceededError') {
+                // If storage is full, try to save only the last 10 items to remain functional
+                try {
+                    localStorage.setItem('ad_history', JSON.stringify(history.slice(0, 10)));
+                } catch (innerE) {
+                    console.error('Even sliced history failed to save:', innerE);
+                }
+            }
+        }
     }, [history]);
 
     useEffect(() => {

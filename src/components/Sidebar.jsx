@@ -11,8 +11,11 @@ const Sidebar = ({ activeTab, setActiveTab, user, onLogout, theme, toggleTheme }
     return (
         <aside className="sidebar">
             <div className="sidebar-logo">
-                <Sparkles className="text-gradient-red" size={24} />
-                <span className="logo-text">Ad Factory</span>
+                <div className="logo-main">
+                    <Sparkles className="text-gradient-red" size={24} />
+                    <span className="logo-text">Ad Factory</span>
+                </div>
+                <span className="logo-subtitle">By Axe Revenue</span>
             </div>
 
             <nav className="sidebar-nav">

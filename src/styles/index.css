@@ -126,10 +126,16 @@ h4,
 
 .sidebar-logo {
     display: flex;
-    align-items: center;
-    gap: 12px;
+    flex-direction: column;
+    gap: 4px;
     margin-bottom: 48px;
     padding-left: 12px;
+}
+
+.logo-main {
+    display: flex;
+    align-items: center;
+    gap: 12px;
 }
 
 .logo-text {
@@ -137,6 +143,15 @@ h4,
     font-weight: 800;
     font-family: 'Outfit', sans-serif;
     letter-spacing: -0.5px;
+}
+
+.logo-subtitle {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding-left: 36px;
 }
 
 .sidebar-nav {

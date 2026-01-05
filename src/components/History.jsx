@@ -1,5 +1,5 @@
 import React from 'react';
-import { Download, RefreshCw, Trash2, Play } from 'lucide-react';
+import { Download, RefreshCw, Trash2, Play, Clock } from 'lucide-react';
 
 const History = ({ history, onRegenerate, onDelete }) => {
     const [playingId, setPlayingId] = React.useState(null);
@@ -117,7 +117,7 @@ const History = ({ history, onRegenerate, onDelete }) => {
             ) : (
                 <div className="card card-ghost" style={{ textAlign: 'center', padding: '80px 20px' }}>
                     <div style={{ opacity: 0.2, marginBottom: '16px' }}>
-                        <History size={48} style={{ margin: '0 auto' }} />
+                        <Clock size={48} style={{ margin: '0 auto' }} />
                     </div>
                     <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '8px' }}>No history found</h3>
                     <p className="section-subtitle">Your generated videos will appear here once you start production.</p>

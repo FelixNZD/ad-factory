@@ -172,7 +172,7 @@ const Generator = ({ onComplete, setActiveTab, prefill, onClearPrefill }) => {
                         taskId: response.taskId,
                         timestamp: new Date().toISOString(),
                         script: task.script,
-                        imageUrl: currentImagePreview,
+                        imageUrl: response.imageUrl || currentImagePreview,
                         presetName: task.displayName,
                         aspectRatio: currentAspectRatio,
                         gender: currentGender

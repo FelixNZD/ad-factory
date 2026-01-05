@@ -166,7 +166,7 @@ export const generateAdVideo = async (options, onProgress) => {
       throw new Error(data.msg || 'API request failed');
     }
 
-    return { taskId: data.data?.taskId };
+    return { taskId: data.data?.taskId, imageUrl: finalImageUrl };
   } catch (error) {
     console.error('Kie.ai Generation Error:', error);
     if (error.name === 'AbortError') throw new Error('Generation request timed out');
