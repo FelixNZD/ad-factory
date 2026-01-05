@@ -1,7 +1,7 @@
 import React from 'react';
 import { Download, RefreshCw, Trash2, Play } from 'lucide-react';
 
-const History = ({ history, onRegenerate }) => {
+const History = ({ history, onRegenerate, onDelete }) => {
     const [playingId, setPlayingId] = React.useState(null);
 
     const handleDownload = async (url, filename) => {
@@ -106,7 +106,7 @@ const History = ({ history, onRegenerate }) => {
                                     <button onClick={() => onRegenerate(item)} className="card" style={{ padding: '10px 14px', fontSize: '13px', border: '1px solid var(--border-color)' }}>
                                         <RefreshCw size={14} color="var(--text-color)" />
                                     </button>
-                                    <button className="card" style={{ padding: '10px 14px', fontSize: '13px', border: '1px solid var(--border-color)' }}>
+                                    <button onClick={() => onDelete(item.timestamp)} className="card" style={{ padding: '10px 14px', fontSize: '13px', border: '1px solid var(--border-color)' }}>
                                         <Trash2 size={14} color="var(--text-color)" />
                                     </button>
                                 </div>

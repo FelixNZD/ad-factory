@@ -53,6 +53,12 @@ function App() {
         setActiveTab('generator');
     };
 
+    const handleDelete = (timestamp) => {
+        if (window.confirm('Are you sure you want to delete this record from your history?')) {
+            setHistory(prev => prev.filter(item => item.timestamp !== timestamp));
+        }
+    };
+
     const handleLogin = (userData) => {
         setIsAuthenticated(true);
         setUser(userData);
@@ -95,7 +101,7 @@ function App() {
                         />
                     )}
                     {activeTab === 'history' && (
-                        <History history={history} onRegenerate={handleRegenerate} />
+                        <History history={history} onRegenerate={handleRegenerate} onDelete={handleDelete} />
                     )}
                 </div>
             </main>
