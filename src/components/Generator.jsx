@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Send, Loader2, CheckCircle2, AlertCircle, Download, RefreshCw, Sparkles, Upload, FileImage, X, Monitor, Smartphone, Square, FileArchive, AlertTriangle, FolderOpen, Plus } from 'lucide-react';
+import { Camera, Send, Loader2, CheckCircle2, AlertCircle, Download, RefreshCw, Sparkles, Upload, FileImage, X, Monitor, Smartphone, Square, FileArchive, AlertTriangle, FolderOpen, Plus, Wifi, WifiOff } from 'lucide-react';
 import { generateAdVideo, pollTaskStatus, getDownloadUrl } from '../services/kieService';
-import { createBatch, saveGeneration } from '../services/supabase';
+import { createBatch, saveGeneration, supabase } from '../services/supabase';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 
@@ -331,6 +331,29 @@ const Generator = ({ onComplete, onBatchComplete, setActiveTab, prefill, onClear
                 </div>
                 <p className="section-subtitle">Veo 3.1 Pro Engine • Automated UGC Workflow</p>
             </header>
+
+            {/* Database Connection Warning */}
+            {!supabase && (
+                <div className="card" style={{
+                    padding: '12px 16px',
+                    marginBottom: '24px',
+                    backgroundColor: 'rgba(255, 165, 0, 0.1)',
+                    border: '1px solid rgba(255, 165, 0, 0.3)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px'
+                }}>
+                    <WifiOff size={18} color="orange" />
+                    <div style={{ flex: 1 }}>
+                        <span style={{ fontWeight: '600', fontSize: '13px', color: 'orange' }}>
+                            Offline Mode
+                        </span>
+                        <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            Database not connected. Clips won't be organized into batches.
+                        </p>
+                    </div>
+                </div>
+            )}
 
             <div className={['generating', 'completed', 'zipping'].includes(status) ? '' : 'grid-2-cols'}>
                 {['generating', 'completed', 'zipping'].includes(status) ? (

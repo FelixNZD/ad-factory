@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Download, RefreshCw, Trash2, Play, Clock, FolderOpen, Loader2 } from 'lucide-react';
-import { getBatches, getBatchClips, getLegacyGenerations } from '../services/supabase';
+import { Download, RefreshCw, Trash2, Play, Clock, FolderOpen, Loader2, WifiOff } from 'lucide-react';
+import { getBatches, getBatchClips, getLegacyGenerations, supabase } from '../services/supabase';
 import { getDownloadUrl } from '../services/kieService';
 import BatchCard from './BatchCard';
 import BatchDetail from './BatchDetail';
@@ -88,6 +88,29 @@ const History = ({ history, onRegenerate, onDelete, user, onClipComplete }) => {
                 <h1 className="section-title">Generation History</h1>
                 <p className="section-subtitle">Manage and download your AI UGC ad batches</p>
             </header>
+
+            {/* Database Connection Warning */}
+            {!supabase && (
+                <div className="card" style={{
+                    padding: '12px 16px',
+                    marginBottom: '24px',
+                    backgroundColor: 'rgba(255, 165, 0, 0.1)',
+                    border: '1px solid rgba(255, 165, 0, 0.3)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px'
+                }}>
+                    <WifiOff size={18} color="orange" />
+                    <div style={{ flex: 1 }}>
+                        <span style={{ fontWeight: '600', fontSize: '13px', color: 'orange' }}>
+                            Offline Mode
+                        </span>
+                        <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            Database not connected. Showing local history only.
+                        </p>
+                    </div>
+                </div>
+            )}
 
             {loading ? (
                 <div style={{
