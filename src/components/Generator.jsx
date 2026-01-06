@@ -481,7 +481,7 @@ const Generator = ({ onComplete, onBatchComplete, setActiveTab, prefill, onClear
                                                 placeholder="Enter voice script..."
                                                 style={{ border: 'none', padding: '4px', minHeight: '80px', background: 'transparent' }}
                                             />
-                                            <button onClick={() => removeSnippet(idx)} style={{ padding: '4px', background: 'none', border: 'none', opacity: 0.3 }}><X size={16} /></button>
+                                            <button onClick={() => removeSnippet(idx)} style={{ padding: '4px', background: 'none', border: 'none', color: 'var(--text-muted)' }}><X size={16} /></button>
                                         </div>
                                     ))}
 
@@ -506,7 +506,7 @@ const Generator = ({ onComplete, onBatchComplete, setActiveTab, prefill, onClear
                                             <p style={{ fontSize: '14px', fontWeight: '600' }}>{imageFile?.name || 'Image Loaded'}</p>
                                             <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Ready for production</p>
                                         </div>
-                                        <button onClick={removeImage} style={{ background: 'none', border: 'none', color: '#666' }}><X size={20} /></button>
+                                        <button onClick={removeImage} style={{ background: 'none', border: 'none', color: 'var(--text-muted)' }}><X size={20} /></button>
                                     </div>
                                 )}
                             </div>

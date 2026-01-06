@@ -234,7 +234,7 @@ const BatchDetail = ({ batch, onBack, onClipComplete, userEmail }) => {
                             onClick={() => setShowAddScript(false)}
                             style={{ background: 'none', border: 'none', cursor: 'pointer' }}
                         >
-                            <X size={18} color="var(--text-muted)" />
+                            <X size={18} color="var(--text-color)" />
                         </button>
                     </div>
 
