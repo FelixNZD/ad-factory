@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Send, Loader2, CheckCircle2, AlertCircle, Download, RefreshCw, Sparkles, Upload, FileImage, X, Monitor, Smartphone, Square, FileArchive, AlertTriangle, FolderOpen } from 'lucide-react';
+import { Camera, Send, Loader2, CheckCircle2, AlertCircle, Download, RefreshCw, Sparkles, Upload, FileImage, X, Monitor, Smartphone, Square, FileArchive, AlertTriangle, FolderOpen, Plus } from 'lucide-react';
 import { generateAdVideo, pollTaskStatus } from '../services/kieService';
 import { createBatch, saveGeneration } from '../services/supabase';
 import JSZip from 'jszip';
@@ -49,6 +49,8 @@ const Generator = ({ onComplete, onBatchComplete, setActiveTab, prefill, onClear
     const [batchTasks, setBatchTasks] = useState([]); // [{id, script, status, progress, result, error}]
     const [batchName, setBatchName] = useState('');
     const [currentBatchId, setCurrentBatchId] = useState(null);
+    const [newClipScript, setNewClipScript] = useState('');
+    const [isAddingClip, setIsAddingClip] = useState(false);
     const fileInputRef = useRef(null);
 
     const messageIntervalRef = useRef(null);
@@ -255,6 +257,8 @@ const Generator = ({ onComplete, onBatchComplete, setActiveTab, prefill, onClear
         setBatchTasks([]);
         setBatchName('');
         setCurrentBatchId(null);
+        setNewClipScript('');
+        setIsAddingClip(false);
         removeImage();
         consecutiveFailuresRef.current = 0;
         isGeneratingBatchRef.current = false;
@@ -290,13 +294,13 @@ const Generator = ({ onComplete, onBatchComplete, setActiveTab, prefill, onClear
     const handleDownload = async (url, filename) => {
         if (!url) return;
         try {
-            const response = await fetch(url);
+            const response = await fetch(url, { mode: 'cors' });
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
             const blob = await response.blob();
+            // Check if we got a valid video file
             if (blob.type.includes('text') && blob.size < 1000) {
-                window.open(url, '_blank');
-                return;
+                throw new Error('Invalid response - not a video file');
             }
 
             const blobUrl = window.URL.createObjectURL(blob);
@@ -308,8 +312,17 @@ const Generator = ({ onComplete, onBatchComplete, setActiveTab, prefill, onClear
             document.body.removeChild(link);
             window.URL.revokeObjectURL(blobUrl);
         } catch (error) {
-            console.error('Download failed:', error);
-            window.open(url, '_blank');
+            console.error('Download via fetch failed:', error);
+            // Fallback: Create a direct download link with the original URL
+            // This works better than window.open for video files
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename || 'ad-video.mp4';
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
     };
 
@@ -364,6 +377,87 @@ const Generator = ({ onComplete, onBatchComplete, setActiveTab, prefill, onClear
                                     Start New Batch
                                 </button>
                             </div>
+                        </div>
+
+                        {/* Add More Clips Section */}
+                        <div className="card" style={{
+                            padding: '20px',
+                            border: isAddingClip ? '1px solid var(--primary-color)' : '1px dashed var(--border-color)',
+                            backgroundColor: isAddingClip ? 'rgba(255, 0, 0, 0.02)' : 'transparent'
+                        }}>
+                            {!isAddingClip ? (
+                                <button
+                                    onClick={() => setIsAddingClip(true)}
+                                    style={{
+                                        width: '100%',
+                                        padding: '16px',
+                                        background: 'none',
+                                        border: 'none',
+                                        color: 'var(--text-muted)',
+                                        fontSize: '14px',
+                                        fontWeight: '600',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '8px'
+                                    }}
+                                >
+                                    <Plus size={18} /> Add More Clips to This Batch
+                                </button>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <h4 style={{ fontSize: '14px', fontWeight: '700' }}>Add New Script</h4>
+                                        <button
+                                            onClick={() => {
+                                                setIsAddingClip(false);
+                                                setNewClipScript('');
+                                            }}
+                                            style={{ background: 'none', border: 'none', color: 'var(--text-muted)' }}
+                                        >
+                                            <X size={18} />
+                                        </button>
+                                    </div>
+                                    <textarea
+                                        value={newClipScript}
+                                        onChange={(e) => setNewClipScript(e.target.value)}
+                                        placeholder="Enter voice script for a new clip..."
+                                        style={{
+                                            width: '100%',
+                                            minHeight: '100px',
+                                            padding: '14px',
+                                            borderRadius: '10px',
+                                            border: '1px solid var(--border-color)',
+                                            backgroundColor: 'var(--surface-color)',
+                                            resize: 'vertical'
+                                        }}
+                                    />
+                                    <button
+                                        onClick={() => {
+                                            if (!newClipScript.trim()) return;
+                                            const newId = batchTasks.length;
+                                            const newTask = {
+                                                id: newId,
+                                                script: newClipScript,
+                                                status: 'preparing',
+                                                progress: 0,
+                                                result: null,
+                                                error: null,
+                                                displayName: `Clip ${newId + 1}`
+                                            };
+                                            setBatchTasks(prev => [...prev, newTask]);
+                                            executeTask(newTask, context, gender, aspectRatio, imagePreview, currentBatchId);
+                                            setNewClipScript('');
+                                            setIsAddingClip(false);
+                                        }}
+                                        className="btn-primary"
+                                        style={{ width: '100%', padding: '14px' }}
+                                        disabled={!newClipScript.trim()}
+                                    >
+                                        <Send size={16} /> Generate Clip
+                                    </button>
+                                </div>
+                            )}
                         </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))', gap: '20px' }}>

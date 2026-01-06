@@ -49,12 +49,11 @@ const History = ({ history, onRegenerate, onDelete, user, onClipComplete }) => {
     const handleDownload = async (url, filename) => {
         if (!url) return;
         try {
-            const response = await fetch(url);
+            const response = await fetch(url, { mode: 'cors' });
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
             const blob = await response.blob();
             if (blob.type.includes('text') && blob.size < 1000) {
-                window.open(url, '_blank');
-                return;
+                throw new Error('Invalid response - not a video file');
             }
             const blobUrl = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
@@ -65,8 +64,15 @@ const History = ({ history, onRegenerate, onDelete, user, onClipComplete }) => {
             document.body.removeChild(link);
             window.URL.revokeObjectURL(blobUrl);
         } catch (error) {
-            console.error('Download failed:', error);
-            window.open(url, '_blank');
+            console.error('Download via fetch failed:', error);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename || 'ad-video.mp4';
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
     };
 
