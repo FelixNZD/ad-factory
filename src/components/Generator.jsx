@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Camera, Send, Loader2, CheckCircle2, AlertCircle, Download, RefreshCw, Sparkles, Upload, FileImage, X, Monitor, Smartphone, Square, FileArchive, AlertTriangle, FolderOpen, Plus } from 'lucide-react';
-import { generateAdVideo, pollTaskStatus } from '../services/kieService';
+import { generateAdVideo, pollTaskStatus, getDownloadUrl } from '../services/kieService';
 import { createBatch, saveGeneration } from '../services/supabase';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
@@ -294,26 +294,20 @@ const Generator = ({ onComplete, onBatchComplete, setActiveTab, prefill, onClear
     const handleDownload = async (url, filename) => {
         if (!url) return;
         try {
-            // On production (Vercel), use the proxy API to bypass CORS
-            const isProduction = window.location.hostname !== 'localhost';
-            const fetchUrl = isProduction
-                ? `/api/download?url=${encodeURIComponent(url)}`
-                : url;
+            // Get the official temporary download URL from Kie API
+            // This bypasses CORS and CDN issues
+            const downloadUrl = await getDownloadUrl(url);
 
-            const response = await fetch(fetchUrl);
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-
-            const blob = await response.blob();
-            const blobUrl = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
-            link.href = blobUrl;
+            link.href = downloadUrl || url;
             link.download = filename || 'ad-video.mp4';
+            link.target = '_blank';
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            window.URL.revokeObjectURL(blobUrl);
         } catch (error) {
             console.error('Download failed:', error);
+            // Fallback
             window.open(url, '_blank');
         }
     };

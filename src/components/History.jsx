@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Download, RefreshCw, Trash2, Play, Clock, FolderOpen, Loader2 } from 'lucide-react';
 import { getBatches, getBatchClips, getLegacyGenerations } from '../services/supabase';
+import { getDownloadUrl } from '../services/kieService';
 import BatchCard from './BatchCard';
 import BatchDetail from './BatchDetail';
 
@@ -49,27 +50,22 @@ const History = ({ history, onRegenerate, onDelete, user, onClipComplete }) => {
     const handleDownload = async (url, filename) => {
         if (!url) return;
         try {
-            const isProduction = window.location.hostname !== 'localhost';
-            const fetchUrl = isProduction
-                ? `/api/download?url=${encodeURIComponent(url)}`
-                : url;
+            // Get the official temporary download URL from Kie API
+            const downloadUrl = await getDownloadUrl(url);
 
-            const response = await fetch(fetchUrl);
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-            const blob = await response.blob();
-            const blobUrl = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
-            link.href = blobUrl;
+            link.href = downloadUrl || url;
             link.download = filename || 'ad-video.mp4';
+            link.target = '_blank';
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            window.URL.revokeObjectURL(blobUrl);
         } catch (error) {
             console.error('Download failed:', error);
             window.open(url, '_blank');
         }
     };
+
 
     // Show batch detail view
     if (selectedBatch) {

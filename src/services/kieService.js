@@ -286,3 +286,35 @@ export const pollTaskStatus = async (taskId) => {
 
   throw lastError || new Error('All polling endpoints failed');
 };
+
+/**
+ * Gets a temporary downloadable URL for a generated file
+ * Bypasses CORS and CDN restrictions for downloads
+ */
+export const getDownloadUrl = async (fileUrl) => {
+  if (!fileUrl) return null;
+
+  try {
+    const response = await fetchWithTimeout(`${KIE_PROXY}/api/v1/common/download-url`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${KIE_API_KEY}`
+      },
+      body: JSON.stringify({ fileUrl })
+    });
+
+    const data = await handleResponse(response);
+
+    if (data.code !== 200 || !data.data) {
+      throw new Error(data.msg || 'Failed to generate download URL');
+    }
+
+    // The API usually returns the link in data.data directly
+    return data.data;
+  } catch (error) {
+    console.error('Error fetching download URL:', error);
+    // Fallback to original URL if this fails, though it might fail too
+    return fileUrl;
+  }
+};
