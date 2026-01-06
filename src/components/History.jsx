@@ -49,12 +49,14 @@ const History = ({ history, onRegenerate, onDelete, user, onClipComplete }) => {
     const handleDownload = async (url, filename) => {
         if (!url) return;
         try {
-            const response = await fetch(url, { mode: 'cors' });
+            const isProduction = window.location.hostname !== 'localhost';
+            const fetchUrl = isProduction
+                ? `/api/download?url=${encodeURIComponent(url)}`
+                : url;
+
+            const response = await fetch(fetchUrl);
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
             const blob = await response.blob();
-            if (blob.type.includes('text') && blob.size < 1000) {
-                throw new Error('Invalid response - not a video file');
-            }
             const blobUrl = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = blobUrl;
@@ -64,9 +66,8 @@ const History = ({ history, onRegenerate, onDelete, user, onClipComplete }) => {
             document.body.removeChild(link);
             window.URL.revokeObjectURL(blobUrl);
         } catch (error) {
-            console.error('Download via fetch failed (CORS issue):', error);
+            console.error('Download failed:', error);
             window.open(url, '_blank');
-            alert('Video opened in new tab. Right-click the video and select \"Save video as...\" to download.');
         }
     };
 

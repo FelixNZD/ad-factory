@@ -294,16 +294,16 @@ const Generator = ({ onComplete, onBatchComplete, setActiveTab, prefill, onClear
     const handleDownload = async (url, filename) => {
         if (!url) return;
         try {
-            // Try fetching with CORS - works on localhost, may fail on production
-            const response = await fetch(url, { mode: 'cors' });
+            // On production (Vercel), use the proxy API to bypass CORS
+            const isProduction = window.location.hostname !== 'localhost';
+            const fetchUrl = isProduction
+                ? `/api/download?url=${encodeURIComponent(url)}`
+                : url;
+
+            const response = await fetch(fetchUrl);
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
             const blob = await response.blob();
-            // Check if we got a valid video file
-            if (blob.type.includes('text') && blob.size < 1000) {
-                throw new Error('Invalid response - not a video file');
-            }
-
             const blobUrl = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = blobUrl;
@@ -313,11 +313,8 @@ const Generator = ({ onComplete, onBatchComplete, setActiveTab, prefill, onClear
             document.body.removeChild(link);
             window.URL.revokeObjectURL(blobUrl);
         } catch (error) {
-            console.error('Download via fetch failed (CORS issue):', error);
-            // CORS blocked - open video directly in new tab
-            // Browser will either play it or prompt download
+            console.error('Download failed:', error);
             window.open(url, '_blank');
-            alert('Video opened in new tab. Right-click the video and select "Save video as..." to download.');
         }
     };
 
