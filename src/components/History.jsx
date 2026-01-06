@@ -64,15 +64,9 @@ const History = ({ history, onRegenerate, onDelete, user, onClipComplete }) => {
             document.body.removeChild(link);
             window.URL.revokeObjectURL(blobUrl);
         } catch (error) {
-            console.error('Download via fetch failed:', error);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = filename || 'ad-video.mp4';
-            link.target = '_blank';
-            link.rel = 'noopener noreferrer';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            console.error('Download via fetch failed (CORS issue):', error);
+            window.open(url, '_blank');
+            alert('Video opened in new tab. Right-click the video and select \"Save video as...\" to download.');
         }
     };
 
