@@ -3,8 +3,9 @@ import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import Generator from './components/Generator';
 import History from './components/History';
+import Workspaces from './components/Workspaces';
 import Login from './components/Login';
-import { supabase, getGenerations, saveGeneration, deleteGeneration } from './services/supabase';
+import { supabase, getGenerations, deleteGeneration } from './services/supabase';
 
 function App() {
     const [activeTab, setActiveTab] = useState('dashboard');
@@ -89,11 +90,14 @@ function App() {
         setTheme(prev => prev === 'dark' ? 'light' : 'dark');
     };
 
-    const handleComplete = async (newVideo) => {
+    const handleComplete = (newVideo) => {
+        // Just update local state for UI - Generator now handles Supabase save
         setHistory(prev => [newVideo, ...prev]);
-        if (supabase && user) {
-            await saveGeneration(newVideo, user.email);
-        }
+    };
+
+    const handleBatchComplete = (batch) => {
+        console.log('Batch created:', batch);
+        // Could trigger a refresh or notification here
     };
 
     const handleRegenerate = (video) => {
@@ -151,13 +155,27 @@ function App() {
                     {activeTab === 'generator' && (
                         <Generator
                             onComplete={handleComplete}
+                            onBatchComplete={handleBatchComplete}
                             setActiveTab={setActiveTab}
                             prefill={prefillData}
                             onClearPrefill={() => setPrefillData(null)}
+                            user={user}
                         />
                     )}
                     {activeTab === 'history' && (
-                        <History history={history} onRegenerate={handleRegenerate} onDelete={handleDelete} />
+                        <History
+                            history={history}
+                            onRegenerate={handleRegenerate}
+                            onDelete={handleDelete}
+                            user={user}
+                            onClipComplete={handleComplete}
+                        />
+                    )}
+                    {activeTab === 'workspaces' && (
+                        <Workspaces
+                            user={user}
+                            onClipComplete={handleComplete}
+                        />
                     )}
                 </div>
             </main>
@@ -166,3 +184,4 @@ function App() {
 }
 
 export default App;
+

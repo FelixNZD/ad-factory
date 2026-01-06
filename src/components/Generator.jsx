@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Send, Loader2, CheckCircle2, AlertCircle, Download, RefreshCw, Sparkles, Upload, FileImage, X, Monitor, Smartphone, Square, FileArchive, AlertTriangle } from 'lucide-react';
+import { Camera, Send, Loader2, CheckCircle2, AlertCircle, Download, RefreshCw, Sparkles, Upload, FileImage, X, Monitor, Smartphone, Square, FileArchive, AlertTriangle, FolderOpen } from 'lucide-react';
 import { generateAdVideo, pollTaskStatus } from '../services/kieService';
+import { createBatch, saveGeneration } from '../services/supabase';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 
@@ -33,7 +34,7 @@ const AUSTRALIAN_LIFE_INSURANCE = {
     }
 };
 
-const Generator = ({ onComplete, setActiveTab, prefill, onClearPrefill }) => {
+const Generator = ({ onComplete, onBatchComplete, setActiveTab, prefill, onClearPrefill, user }) => {
     const [gender, setGender] = useState('male');
     const [snippets, setSnippets] = useState(['']);
     const [context, setContext] = useState('');
@@ -46,6 +47,8 @@ const Generator = ({ onComplete, setActiveTab, prefill, onClearPrefill }) => {
     const [progress, setProgress] = useState(0);
     const [errorMessage, setErrorMessage] = useState('');
     const [batchTasks, setBatchTasks] = useState([]); // [{id, script, status, progress, result, error}]
+    const [batchName, setBatchName] = useState('');
+    const [currentBatchId, setCurrentBatchId] = useState(null);
     const fileInputRef = useRef(null);
 
     const messageIntervalRef = useRef(null);
@@ -126,6 +129,19 @@ const Generator = ({ onComplete, setActiveTab, prefill, onClearPrefill }) => {
         setStatus('generating');
         setErrorMessage('');
 
+        // Create a batch first
+        const generatedBatchName = batchName.trim() || `Batch - ${new Date().toLocaleDateString()}`;
+        const batch = await createBatch({
+            name: generatedBatchName,
+            imageUrl: imagePreview,
+            aspectRatio: aspectRatio,
+            gender: gender,
+            workspaceId: 'axe-revenue'
+        }, user?.email);
+
+        const batchId = batch?.id || null;
+        setCurrentBatchId(batchId);
+
         // Initialize tasks
         const initialTasks = snippets.map((s, i) => ({
             id: i,
@@ -140,10 +156,15 @@ const Generator = ({ onComplete, setActiveTab, prefill, onClearPrefill }) => {
         setBatchTasks(initialTasks);
 
         // Run all tasks in parallel
-        initialTasks.forEach(task => executeTask(task, context, gender, aspectRatio, imagePreview));
+        initialTasks.forEach(task => executeTask(task, context, gender, aspectRatio, imagePreview, batchId));
+
+        // Notify batch created
+        if (onBatchComplete && batch) {
+            onBatchComplete(batch);
+        }
     };
 
-    const executeTask = async (task, currentContext, currentGender, currentAspectRatio, currentImagePreview) => {
+    const executeTask = async (task, currentContext, currentGender, currentAspectRatio, currentImagePreview, batchId = null) => {
         const updateTask = (updates) => {
             setBatchTasks(prev => prev.map(t => t.id === task.id ? { ...t, ...updates } : t));
         };
@@ -194,6 +215,12 @@ const Generator = ({ onComplete, setActiveTab, prefill, onClearPrefill }) => {
                         gender: currentGender
                     };
                     updateTask({ status: 'completed', progress: 100, result: finalResult });
+
+                    // Save to Supabase with batch ID
+                    if (user?.email) {
+                        await saveGeneration(finalResult, user.email, batchId);
+                    }
+
                     if (typeof onComplete === 'function') {
                         onComplete(finalResult);
                     }
@@ -215,7 +242,7 @@ const Generator = ({ onComplete, setActiveTab, prefill, onClearPrefill }) => {
     };
 
     const handleRegenerateTask = (task) => {
-        executeTask(task, context, gender, aspectRatio, imagePreview);
+        executeTask(task, context, gender, aspectRatio, imagePreview, currentBatchId);
     };
 
     const handleReset = () => {
@@ -226,6 +253,8 @@ const Generator = ({ onComplete, setActiveTab, prefill, onClearPrefill }) => {
         setContext('');
         setCurrentStep('');
         setBatchTasks([]);
+        setBatchName('');
+        setCurrentBatchId(null);
         removeImage();
         consecutiveFailuresRef.current = 0;
         isGeneratingBatchRef.current = false;
@@ -491,6 +520,16 @@ const Generator = ({ onComplete, setActiveTab, prefill, onClearPrefill }) => {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
                             <div className="card" style={{ position: 'sticky', top: '40px' }}>
                                 <h3 style={{ fontSize: '16px', fontWeight: '800', marginBottom: '20px' }}>PRODUCTION CONFIG</h3>
+
+                                <div style={{ marginBottom: '24px' }}>
+                                    <label className="label-caps">BATCH NAME</label>
+                                    <input
+                                        type="text"
+                                        placeholder={`Batch - ${new Date().toLocaleDateString()}`}
+                                        value={batchName}
+                                        onChange={(e) => setBatchName(e.target.value)}
+                                    />
+                                </div>
 
                                 <div style={{ backgroundColor: 'rgba(255, 0, 0, 0.05)', borderLeft: '3px solid var(--primary-color)', padding: '16px', borderRadius: '8px', marginBottom: '24px' }}>
                                     <div style={{ fontWeight: '700', fontSize: '14px' }}>{AUSTRALIAN_LIFE_INSURANCE.name}</div>
