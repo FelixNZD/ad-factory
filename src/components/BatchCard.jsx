@@ -21,7 +21,7 @@ const BatchCard = ({ batch, clipCount, onClick, showCreator = false }) => {
                 borderRadius: '12px',
                 overflow: 'hidden',
                 flexShrink: 0,
-                backgroundColor: '#111',
+                backgroundColor: 'var(--video-bg)',
                 border: '1px solid var(--border-color)'
             }}>
                 {batch.image_url ? (

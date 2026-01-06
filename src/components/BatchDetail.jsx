@@ -304,7 +304,7 @@ const BatchDetail = ({ batch, onBack, onClipComplete, userEmail }) => {
                             {/* Video Preview */}
                             <div style={{
                                 aspectRatio: (batch.aspect_ratio || '9:16').replace(':', '/'),
-                                backgroundColor: '#000',
+                                backgroundColor: 'var(--video-bg)',
                                 borderRadius: '10px',
                                 overflow: 'hidden',
                                 marginBottom: '16px',

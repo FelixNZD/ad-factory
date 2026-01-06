@@ -41,7 +41,7 @@ const Dashboard = ({ history, onNavigate }) => {
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '24px' }}>
                         {recentVideos.map((video, i) => (
                             <div key={i} className="card card-interactive animate-slide-up" onClick={() => onNavigate('history')} style={{ padding: '0', overflow: 'hidden', animationDelay: `${i * 0.1}s` }}>
-                                <div style={{ aspectRatio: '9/16', backgroundColor: '#000', position: 'relative' }}>
+                                <div style={{ aspectRatio: '9/16', backgroundColor: 'var(--video-bg)', position: 'relative' }}>
                                     <img src={video.imageUrl} alt="Ad Thumbnail" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.5 }} />
                                     <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                         <div style={{ width: '56px', height: '56px', borderRadius: '50%', backgroundColor: 'rgba(255, 0, 0, 0.2)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

@@ -181,7 +181,7 @@ const History = ({ history, onRegenerate, onDelete, user, onClipComplete }) => {
                                             <div style={{
                                                 width: '160px',
                                                 aspectRatio: item.aspectRatio ? item.aspectRatio.replace(':', '/') : '9/16',
-                                                backgroundColor: '#000',
+                                                backgroundColor: 'var(--video-bg)',
                                                 borderRadius: '12px',
                                                 overflow: 'hidden',
                                                 flexShrink: 0,

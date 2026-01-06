@@ -212,7 +212,7 @@ const Workspaces = ({ user, onClipComplete }) => {
                                                 <div key={clip.timestamp || i} className="card" style={{ padding: '12px' }}>
                                                     <div style={{
                                                         aspectRatio: (clip.aspectRatio || '9:16').replace(':', '/'),
-                                                        backgroundColor: '#000',
+                                                        backgroundColor: 'var(--video-bg)',
                                                         borderRadius: '10px',
                                                         overflow: 'hidden',
                                                         marginBottom: '12px',

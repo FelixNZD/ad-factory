@@ -507,7 +507,7 @@ const Generator = ({ onComplete, onBatchComplete, setActiveTab, prefill, onClear
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                                             <div style={{
                                                 aspectRatio: aspectRatio.replace(':', '/'),
-                                                backgroundColor: '#000',
+                                                backgroundColor: 'var(--video-bg)',
                                                 borderRadius: '12px',
                                                 overflow: 'hidden',
                                                 border: '1px solid var(--border-color)',

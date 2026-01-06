@@ -92,7 +92,7 @@ const Login = ({ onLogin, theme, toggleTheme }) => {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                         <label className="label-caps" style={{ marginLeft: '4px', marginBottom: '0' }}>Admin Email</label>
                         <div style={{ position: 'relative' }}>
-                            <Mail style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#444' }} size={18} />
+                            <Mail style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} size={18} />
                             <input
                                 type="email"
                                 placeholder="name@axerevenue.com"
@@ -107,7 +107,7 @@ const Login = ({ onLogin, theme, toggleTheme }) => {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                         <label className="label-caps" style={{ marginLeft: '4px', marginBottom: '0' }}>Security Key</label>
                         <div style={{ position: 'relative' }}>
-                            <Lock style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#444' }} size={18} />
+                            <Lock style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} size={18} />
                             <input
                                 type="password"
                                 placeholder="••••••••"
