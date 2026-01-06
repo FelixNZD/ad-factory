@@ -71,6 +71,18 @@ export const getUserWorkspace = (userEmail) => {
  * create policy "Public Access" on generations for all using (true);
  */
 
+// ============ HELPER FUNCTIONS ============
+
+// Helper to transform database records to component format
+const transformGeneration = (gen) => ({
+    ...gen,
+    videoUrl: gen.videoUrl || gen.video_url,
+    imageUrl: gen.imageUrl || gen.image_url,
+    presetName: gen.presetName || gen.preset_name,
+    aspectRatio: gen.aspectRatio || gen.aspect_ratio,
+    batch_id: gen.batch_id
+});
+
 // ============ BATCH FUNCTIONS ============
 
 export const createBatch = async (batchData, userEmail) => {
@@ -99,6 +111,15 @@ export const createBatch = async (batchData, userEmail) => {
     return data;
 };
 
+// Helper to transform batch database records to component format
+const transformBatch = (batch) => ({
+    ...batch,
+    image_url: batch.image_url,
+    aspect_ratio: batch.aspect_ratio,
+    imageUrl: batch.image_url,
+    aspectRatio: batch.aspect_ratio
+});
+
 export const getBatches = async (workspaceId = null) => {
     if (!supabase) return [];
 
@@ -117,7 +138,7 @@ export const getBatches = async (workspaceId = null) => {
         console.error('Error fetching batches:', error);
         return [];
     }
-    return data;
+    return (data || []).map(transformBatch);
 };
 
 export const getBatchClips = async (batchId) => {
@@ -133,7 +154,8 @@ export const getBatchClips = async (batchId) => {
         console.error('Error fetching batch clips:', error);
         return [];
     }
-    return data;
+
+    return (data || []).map(transformGeneration);
 };
 
 export const deleteBatch = async (batchId) => {
@@ -170,7 +192,7 @@ export const getGenerations = async () => {
         console.error('Error fetching generations:', error);
         return [];
     }
-    return data;
+    return (data || []).map(transformGeneration);
 };
 
 export const getLegacyGenerations = async () => {
@@ -186,16 +208,23 @@ export const getLegacyGenerations = async () => {
         console.error('Error fetching legacy generations:', error);
         return [];
     }
-    return data;
+    return (data || []).map(transformGeneration);
 };
 
 export const saveGeneration = async (generation, userEmail, batchId = null) => {
     if (!supabase) return;
 
+    // Map JavaScript camelCase to database snake_case
     const { error } = await supabase
         .from('generations')
         .insert([{
-            ...generation,
+            timestamp: generation.timestamp,
+            videoUrl: generation.videoUrl,
+            imageUrl: generation.imageUrl,
+            script: generation.script,
+            presetName: generation.presetName,
+            aspectRatio: generation.aspectRatio,
+            gender: generation.gender,
             created_by: userEmail,
             batch_id: batchId
         }]);
@@ -236,7 +265,7 @@ export const getWorkspaceBatches = async (workspaceId) => {
         console.error('Error fetching workspace batches:', error);
         return [];
     }
-    return data;
+    return (data || []).map(transformBatch);
 };
 
 export const getWorkspaceGenerations = async (workspaceId) => {
@@ -256,5 +285,5 @@ export const getWorkspaceGenerations = async (workspaceId) => {
         console.error('Error fetching workspace generations:', error);
         return [];
     }
-    return data;
+    return (data || []).map(transformGeneration);
 };
