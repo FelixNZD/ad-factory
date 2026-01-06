@@ -133,6 +133,8 @@ const Generator = ({ onComplete, onBatchComplete, setActiveTab, prefill, onClear
 
         // Create a batch first
         const generatedBatchName = batchName.trim() || `Batch - ${new Date().toLocaleDateString()}`;
+        console.log('📦 Creating batch:', generatedBatchName);
+
         const batch = await createBatch({
             name: generatedBatchName,
             imageUrl: imagePreview,
@@ -141,7 +143,15 @@ const Generator = ({ onComplete, onBatchComplete, setActiveTab, prefill, onClear
             workspaceId: 'axe-revenue'
         }, user?.email);
 
+        console.log('📦 Batch creation result:', batch);
+
+        if (!batch || !batch.id) {
+            console.error('❌ Failed to create batch! Clips will not be organized.');
+            alert('Warning: Failed to create batch in database. Clips may appear as Legacy. Check console for errors.');
+        }
+
         const batchId = batch?.id || null;
+        console.log('📦 Using batch ID:', batchId);
         setCurrentBatchId(batchId);
 
         // Initialize tasks

@@ -87,9 +87,19 @@ const transformGeneration = (gen) => ({
 
 export const createBatch = async (batchData, userEmail) => {
     if (!supabase) {
+        console.warn('⚠️ Supabase not configured - using local batch ID');
         // Return a local batch ID for offline mode
         return { id: `local-${Date.now()}`, ...batchData };
     }
+
+    console.log('📦 Inserting batch into Supabase:', {
+        name: batchData.name,
+        image_url: batchData.imageUrl ? '[base64 data]' : null,
+        aspect_ratio: batchData.aspectRatio,
+        gender: batchData.gender,
+        workspace_id: batchData.workspaceId || 'axe-revenue',
+        created_by: userEmail
+    });
 
     const { data, error } = await supabase
         .from('batches')
@@ -105,9 +115,12 @@ export const createBatch = async (batchData, userEmail) => {
         .single();
 
     if (error) {
-        console.error('Error creating batch:', error);
+        console.error('❌ Error creating batch:', error);
+        console.error('❌ Error details:', JSON.stringify(error, null, 2));
         return null;
     }
+
+    console.log('✅ Batch created successfully:', data);
     return data;
 };
 
