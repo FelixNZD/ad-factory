@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Send, Loader2, CheckCircle2, AlertCircle, Download, RefreshCw, Sparkles, Upload, FileImage, X, Monitor, Smartphone, Square, FileArchive } from 'lucide-react';
+import { Camera, Send, Loader2, CheckCircle2, AlertCircle, Download, RefreshCw, Sparkles, Upload, FileImage, X, Monitor, Smartphone, Square, FileArchive, AlertTriangle } from 'lucide-react';
 import { generateAdVideo, pollTaskStatus } from '../services/kieService';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
@@ -167,6 +167,22 @@ const Generator = ({ onComplete, setActiveTab, prefill, onClearPrefill }) => {
                 const pollResponse = await pollTaskStatus(response.taskId);
 
                 if (pollResponse.status === 'completed' && pollResponse.videoUrl) {
+                    // Validate video URL before marking as complete
+                    console.log('✅ Video URL received:', pollResponse.videoUrl);
+
+                    // Test if URL is accessible
+                    try {
+                        const testResponse = await fetch(pollResponse.videoUrl, { method: 'HEAD' });
+                        if (!testResponse.ok) {
+                            console.error('⚠️ Video URL returned status:', testResponse.status);
+                            throw new Error(`Video URL inaccessible (HTTP ${testResponse.status})`);
+                        }
+                        console.log('✅ Video URL is accessible');
+                    } catch (urlError) {
+                        console.error('❌ Video URL test failed:', urlError);
+                        throw new Error(`Video URL failed to load: ${urlError.message}`);
+                    }
+
                     const finalResult = {
                         videoUrl: pollResponse.videoUrl,
                         taskId: response.taskId,
@@ -352,9 +368,30 @@ const Generator = ({ onComplete, setActiveTab, prefill, onClearPrefill }) => {
                                                 backgroundColor: '#000',
                                                 borderRadius: '12px',
                                                 overflow: 'hidden',
-                                                border: '1px solid var(--border-color)'
+                                                border: '1px solid var(--border-color)',
+                                                position: 'relative'
                                             }}>
-                                                <video src={task.result?.videoUrl} controls poster={imagePreview} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                                <video
+                                                    src={task.result?.videoUrl}
+                                                    controls
+                                                    poster={imagePreview}
+                                                    style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                                                    onError={(e) => {
+                                                        console.error('❌ VIDEO LOAD ERROR for task', task.id, ':', e.target.error);
+                                                        console.error('Video URL:', task.result?.videoUrl);
+                                                        console.error('Error code:', e.target.error?.code);
+                                                        console.error('Error message:', e.target.error?.message);
+                                                        updateTask({
+                                                            status: 'error',
+                                                            error: `Video failed to load (Error ${e.target.error?.code || 'UNKNOWN'}). The video URL may be invalid or blocked by CORS.`
+                                                        });
+                                                    }}
+                                                    onLoadedMetadata={(e) => {
+                                                        console.log('✅ Video loaded successfully for task', task.id);
+                                                        console.log('Duration:', e.target.duration, 'seconds');
+                                                        console.log('Video dimensions:', e.target.videoWidth, 'x', e.target.videoHeight);
+                                                    }}
+                                                />
                                             </div>
                                             <div style={{ display: 'flex', gap: '10px' }}>
                                                 <button onClick={() => handleDownload(task.result?.videoUrl, `Clip ${task.id + 1}.mp4`)} className="btn-primary" style={{ flex: 1, padding: '10px' }}>

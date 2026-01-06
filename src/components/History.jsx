@@ -3,6 +3,7 @@ import { Download, RefreshCw, Trash2, Play, Clock } from 'lucide-react';
 
 const History = ({ history, onRegenerate, onDelete }) => {
     const [playingId, setPlayingId] = React.useState(null);
+    const [videoErrors, setVideoErrors] = React.useState({});
 
     const handleDownload = async (url, filename) => {
         if (!url) return;
@@ -56,17 +57,43 @@ const History = ({ history, onRegenerate, onDelete }) => {
                                         autoPlay
                                         style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                                         onPause={() => setPlayingId(null)}
+                                        onError={(e) => {
+                                            console.error('❌ HISTORY VIDEO LOAD ERROR:', e.target.error);
+                                            console.error('Video URL:', item.videoUrl);
+                                            console.error('Error code:', e.target.error?.code);
+                                            console.error('Item:', item);
+                                            setVideoErrors(prev => ({ ...prev, [i]: true }));
+                                            setPlayingId(null);
+                                        }}
+                                        onLoadedMetadata={(e) => {
+                                            console.log('✅ History video loaded successfully');
+                                            console.log('Video URL:', item.videoUrl);
+                                            console.log('Duration:', e.target.duration, 'seconds');
+                                        }}
                                     />
                                 ) : (
                                     <div
-                                        onClick={() => setPlayingId(i)}
+                                        onClick={() => {
+                                            if (videoErrors[i]) {
+                                                alert('This video failed to load. The URL may be invalid or expired.');
+                                                return;
+                                            }
+                                            console.log('🎬 Attempting to play video:', item.videoUrl);
+                                            setPlayingId(i);
+                                        }}
                                         style={{ width: '100%', height: '100%', cursor: 'pointer', position: 'relative' }}
                                     >
                                         <img src={item.imageUrl} alt="Reference" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.6 }} />
                                         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                            <div style={{ width: '56px', height: '56px', borderRadius: '50%', backgroundColor: 'rgba(255, 0, 0, 0.5)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(255,255,255,0.1)', transition: 'all 0.2s ease' }}>
-                                                <Play size={24} fill="white" color="white" />
-                                            </div>
+                                            {videoErrors[i] ? (
+                                                <div style={{ width: '56px', height: '56px', borderRadius: '50%', backgroundColor: 'rgba(255, 0, 0, 0.5)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                                    <AlertCircle size={24} color="white" />
+                                                </div>
+                                            ) : (
+                                                <div style={{ width: '56px', height: '56px', borderRadius: '50%', backgroundColor: 'rgba(255, 0, 0, 0.5)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(255,255,255,0.1)', transition: 'all 0.2s ease' }}>
+                                                    <Play size={24} fill="white" color="white" />
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 )}

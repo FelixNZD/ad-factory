@@ -258,6 +258,19 @@ export const pollTaskStatus = async (taskId) => {
 
       if (data.code === 200 && data.data) {
         const parsed = parsePollingData(data);
+        console.log('📊 Parsed polling data:', {
+          status: parsed.isCompleted ? 'completed' : (parsed.isFailed ? 'failed' : 'processing'),
+          hasVideoUrl: !!parsed.videoUrl,
+          videoUrl: parsed.videoUrl,
+          progress: parsed.progress,
+          error: parsed.error
+        });
+
+        if (parsed.isCompleted && !parsed.videoUrl) {
+          console.warn('⚠️ Task marked complete but no video URL found!');
+          console.warn('Raw task data:', data.data);
+        }
+
         return {
           status: parsed.isCompleted ? 'completed' : (parsed.isFailed ? 'failed' : 'processing'),
           videoUrl: parsed.videoUrl,
