@@ -97,6 +97,7 @@ export const createBatch = async (batchData, userEmail) => {
         image_url: batchData.imageUrl ? '[base64 data]' : null,
         aspect_ratio: batchData.aspectRatio,
         gender: batchData.gender,
+        accent: batchData.accent,
         workspace_id: batchData.workspaceId || 'axe-revenue',
         created_by: userEmail
     });
@@ -108,6 +109,7 @@ export const createBatch = async (batchData, userEmail) => {
             image_url: batchData.imageUrl,
             aspect_ratio: batchData.aspectRatio,
             gender: batchData.gender,
+            accent: batchData.accent,
             workspace_id: batchData.workspaceId || 'axe-revenue',
             created_by: userEmail
         }])

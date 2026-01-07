@@ -5,16 +5,17 @@ import { generateAdVideo, pollTaskStatus, getDownloadUrl } from '../services/kie
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 
-const AUSTRALIAN_LIFE_INSURANCE = {
-    name: 'Australian Life Insurance',
+const getPresetConfig = (accent = 'australian') => ({
+    name: `${accent === 'australian' ? 'Australian' : 'American'} Life Insurance`,
     basePrompt: (script, context, gender) => {
         const actor = gender === 'male' ? 'Man' : 'Woman';
         const subject = gender === 'male' ? 'He' : 'She';
         const possessive = gender === 'male' ? 'his' : 'her';
+        const accentName = accent === 'australian' ? 'Australian' : 'American';
 
-        return `Make the ${actor} in the video speak with a clear Australian accent while delivering the following lines. ${subject} is mid 60s and is talking about ${possessive} experience with life insurance. The voice should be direct, not too expressive, just matter of fact talking about ${possessive} experience.\n\n"${script}"${context ? `\n\nAdditional Context: ${context}` : ''}`
+        return `Make the ${actor} in the video speak with a clear ${accentName} accent while delivering the following lines. ${subject} is mid 60s and is talking about ${possessive} experience with life insurance. The voice should be direct, not too expressive, just matter of fact talking about ${possessive} experience.\n\n"${script}"${context ? `\n\nAdditional Context: ${context}` : ''}`
     }
-};
+});
 
 const BatchDetail = ({ batch, onBack, onClipComplete, userEmail }) => {
     const [clips, setClips] = useState([]);
@@ -91,7 +92,7 @@ const BatchDetail = ({ batch, onBack, onClipComplete, userEmail }) => {
         setGeneratingProgress(5);
 
         try {
-            const finalPrompt = AUSTRALIAN_LIFE_INSURANCE.basePrompt(
+            const finalPrompt = getPresetConfig(batch.accent || 'australian').basePrompt(
                 newScript,
                 '',
                 batch.gender || 'male'
@@ -171,7 +172,7 @@ const BatchDetail = ({ batch, onBack, onClipComplete, userEmail }) => {
         setRegeneratingIdx(idx);
 
         try {
-            const finalPrompt = AUSTRALIAN_LIFE_INSURANCE.basePrompt(
+            const finalPrompt = getPresetConfig(batch.accent || 'australian').basePrompt(
                 editedScript,
                 '',
                 batch.gender || 'male'

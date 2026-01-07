@@ -22,20 +22,22 @@ const PRODUCTION_MESSAGES = [
     "Wrapping up UGC performance..."
 ];
 
-const AUSTRALIAN_LIFE_INSURANCE = {
-    name: 'Australian Life Insurance',
+const getPresetConfig = (accent) => ({
+    name: `${accent === 'australian' ? 'Australian' : 'American'} Life Insurance`,
     cost: '0.25 Credits',
     basePrompt: (script, context, gender) => {
         const actor = gender === 'male' ? 'Man' : 'Woman';
         const subject = gender === 'male' ? 'He' : 'She';
         const possessive = gender === 'male' ? 'his' : 'her';
+        const accentName = accent === 'australian' ? 'Australian' : 'American';
 
-        return `Make the ${actor} in the video speak with a clear Australian accent while delivering the following lines. ${subject} is mid 60s and is talking about ${possessive} experience with life insurance. The voice should be direct, not too expressive, just matter of fact talking about ${possessive} experience.\n\n"${script}"${context ? `\n\nAdditional Context: ${context}` : ''}`
+        return `Make the ${actor} in the video speak with a clear ${accentName} accent while delivering the following lines. ${subject} is mid 60s and is talking about ${possessive} experience with life insurance. The voice should be direct, not too expressive, just matter of fact talking about ${possessive} experience.\n\n"${script}"${context ? `\n\nAdditional Context: ${context}` : ''}`
     }
-};
+});
 
 const Generator = ({ onComplete, onBatchComplete, setActiveTab, prefill, onClearPrefill, user }) => {
     const [gender, setGender] = useState('male');
+    const [accent, setAccent] = useState('australian');
     const [snippets, setSnippets] = useState(['']);
     const [context, setContext] = useState('');
     const [imageFile, setImageFile] = useState(null);
@@ -142,6 +144,7 @@ const Generator = ({ onComplete, onBatchComplete, setActiveTab, prefill, onClear
             imageUrl: imagePreview,
             aspectRatio: aspectRatio,
             gender: gender,
+            accent: accent,
             workspaceId: 'axe-revenue'
         }, user?.email);
 
@@ -187,7 +190,7 @@ const Generator = ({ onComplete, onBatchComplete, setActiveTab, prefill, onClear
             // Reset task state for regeneration
             updateTask({ status: 'submitting', progress: 5, error: null, result: null });
 
-            const finalPrompt = AUSTRALIAN_LIFE_INSURANCE.basePrompt(task.script, currentContext, currentGender);
+            const finalPrompt = getPresetConfig(accent).basePrompt(task.script, currentContext, currentGender);
             const response = await generateAdVideo(
                 { prompt: finalPrompt, imageUrl: currentImagePreview, model: 'veo3_fast', aspectRatio: currentAspectRatio },
                 (step, prog) => updateTask({ progress: prog })
@@ -744,8 +747,36 @@ const Generator = ({ onComplete, onBatchComplete, setActiveTab, prefill, onClear
                                 </div>
 
                                 <div style={{ backgroundColor: 'rgba(255, 0, 0, 0.05)', borderLeft: '3px solid var(--primary-color)', padding: '16px', borderRadius: '8px', marginBottom: '24px' }}>
-                                    <div style={{ fontWeight: '700', fontSize: '14px' }}>{AUSTRALIAN_LIFE_INSURANCE.name}</div>
+                                    <div style={{ fontWeight: '700', fontSize: '14px' }}>{getPresetConfig(accent).name}</div>
                                     <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>VEO 3.1 PRO ENGINE ACTIVE</div>
+                                </div>
+
+                                <div style={{ marginBottom: '24px' }}>
+                                    <label className="label-caps">ACCENT</label>
+                                    <div style={{ display: 'flex', gap: '10px' }}>
+                                        {['australian', 'american'].map(a => (
+                                            <button
+                                                key={a}
+                                                onClick={() => setAccent(a)}
+                                                className="card"
+                                                style={{
+                                                    flex: 1,
+                                                    padding: '12px',
+                                                    borderColor: accent === a ? 'var(--primary-color)' : 'var(--border-color)',
+                                                    backgroundColor: accent === a ? 'rgba(255,0,0,0.05)' : 'transparent',
+                                                    color: accent === a ? 'var(--primary-color)' : 'var(--text-muted)',
+                                                    textTransform: 'capitalize',
+                                                    fontWeight: '600',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    gap: '8px'
+                                                }}
+                                            >
+                                                {a === 'australian' ? '🇦🇺' : '🇺🇸'} {a}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
 
                                 <div style={{ marginBottom: '24px' }}>
