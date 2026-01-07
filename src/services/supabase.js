@@ -44,10 +44,14 @@ export const getUserWorkspace = (userEmail) => {
  *   image_url text,
  *   aspect_ratio text,
  *   gender text,
+ *   accent text default 'australian',
  *   workspace_id text default 'axe-revenue',
  *   created_by text not null,
  *   created_at timestamp with time zone default timezone('utc'::text, now()) not null
  * );
+ * 
+ * -- To add accent column to existing table:
+ * -- ALTER TABLE batches ADD COLUMN accent text DEFAULT 'australian';
  * 
  * alter table batches enable row level security;
  * create policy "Public Access" on batches for all using (true);
@@ -102,7 +106,8 @@ export const createBatch = async (batchData, userEmail) => {
         created_by: userEmail
     });
 
-    const { data, error } = await supabase
+    // Try with accent first, fall back to without if column doesn't exist
+    let { data, error } = await supabase
         .from('batches')
         .insert([{
             name: batchData.name,
@@ -115,6 +120,25 @@ export const createBatch = async (batchData, userEmail) => {
         }])
         .select()
         .single();
+
+    // If there's an error about accent column, retry without it
+    if (error && error.message?.includes('accent')) {
+        console.warn('⚠️ accent column not found, retrying without it...');
+        const retryResult = await supabase
+            .from('batches')
+            .insert([{
+                name: batchData.name,
+                image_url: batchData.imageUrl,
+                aspect_ratio: batchData.aspectRatio,
+                gender: batchData.gender,
+                workspace_id: batchData.workspaceId || 'axe-revenue',
+                created_by: userEmail
+            }])
+            .select()
+            .single();
+        data = retryResult.data;
+        error = retryResult.error;
+    }
 
     if (error) {
         console.error('❌ Error creating batch:', error);
