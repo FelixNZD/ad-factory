@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Download, RefreshCw, Trash2, Play, Plus, Loader2, FileArchive, X, Send } from 'lucide-react';
+import { ArrowLeft, Download, RefreshCw, Trash2, Play, Plus, Loader2, FileArchive, X, Send, Pencil, Check } from 'lucide-react';
 import { getBatchClips, saveGeneration } from '../services/supabase';
 import { generateAdVideo, pollTaskStatus, getDownloadUrl } from '../services/kieService';
 import JSZip from 'jszip';
@@ -25,6 +25,9 @@ const BatchDetail = ({ batch, onBack, onClipComplete, userEmail }) => {
     const [newScript, setNewScript] = useState('');
     const [generating, setGenerating] = useState(false);
     const [generatingProgress, setGeneratingProgress] = useState(0);
+    const [editingClipIdx, setEditingClipIdx] = useState(null);
+    const [editedScript, setEditedScript] = useState('');
+    const [regeneratingIdx, setRegeneratingIdx] = useState(null);
 
     useEffect(() => {
         loadClips();
@@ -147,6 +150,81 @@ const BatchDetail = ({ batch, onBack, onClipComplete, userEmail }) => {
         } finally {
             setGenerating(false);
             setGeneratingProgress(0);
+        }
+    };
+
+    const handleEditScript = (idx) => {
+        setEditingClipIdx(idx);
+        setEditedScript(clips[idx].script);
+    };
+
+    const handleCancelEdit = () => {
+        setEditingClipIdx(null);
+        setEditedScript('');
+    };
+
+    const handleSaveAndRegenerate = async (idx) => {
+        const clip = clips[idx];
+        if (!editedScript.trim()) return;
+
+        setEditingClipIdx(null);
+        setRegeneratingIdx(idx);
+
+        try {
+            const finalPrompt = AUSTRALIAN_LIFE_INSURANCE.basePrompt(
+                editedScript,
+                '',
+                batch.gender || 'male'
+            );
+
+            const response = await generateAdVideo(
+                {
+                    prompt: finalPrompt,
+                    imageUrl: batch.image_url,
+                    model: 'veo3_fast',
+                    aspectRatio: batch.aspect_ratio || '9:16'
+                },
+                () => { }
+            );
+
+            if (!response.taskId) throw new Error('API failed to return a valid Task ID');
+
+            let isTaskDone = false;
+            while (!isTaskDone) {
+                const pollResponse = await pollTaskStatus(response.taskId);
+
+                if (pollResponse.status === 'completed' && pollResponse.videoUrl) {
+                    const finalResult = {
+                        videoUrl: pollResponse.videoUrl,
+                        taskId: response.taskId,
+                        timestamp: new Date().toISOString(),
+                        script: editedScript,
+                        imageUrl: response.imageUrl || batch.image_url,
+                        presetName: `Clip ${idx + 1}`,
+                        aspectRatio: batch.aspect_ratio,
+                        gender: batch.gender
+                    };
+
+                    await saveGeneration(finalResult, userEmail, batch.id);
+                    if (onClipComplete) onClipComplete(finalResult);
+
+                    // Update the clip in local state
+                    setClips(prev => prev.map((c, i) =>
+                        i === idx ? { ...finalResult, batch_id: batch.id } : c
+                    ));
+                    isTaskDone = true;
+                } else if (pollResponse.status === 'failed') {
+                    throw new Error(pollResponse.error || 'Production failed.');
+                }
+
+                if (!isTaskDone) await new Promise(r => setTimeout(r, 5000));
+            }
+        } catch (err) {
+            console.error('Error regenerating clip:', err);
+            alert('Failed to regenerate clip: ' + err.message);
+        } finally {
+            setRegeneratingIdx(null);
+            setEditedScript('');
         }
     };
 
@@ -311,7 +389,20 @@ const BatchDetail = ({ batch, onBack, onClipComplete, userEmail }) => {
                                 border: '1px solid var(--border-color)',
                                 position: 'relative'
                             }}>
-                                {playingId === idx ? (
+                                {regeneratingIdx === idx ? (
+                                    <div style={{
+                                        width: '100%',
+                                        height: '100%',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        flexDirection: 'column',
+                                        gap: '12px'
+                                    }}>
+                                        <Loader2 size={32} className="animate-spin" color="var(--primary-color)" />
+                                        <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Regenerating...</span>
+                                    </div>
+                                ) : playingId === idx ? (
                                     <video
                                         src={clip.videoUrl}
                                         controls
@@ -363,33 +454,81 @@ const BatchDetail = ({ batch, onBack, onClipComplete, userEmail }) => {
                                 )}
                             </div>
 
-                            {/* Clip Info */}
-                            <div style={{ marginBottom: '12px' }}>
-                                <h4 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '4px' }}>
-                                    Clip {idx + 1}
-                                </h4>
-                                <p style={{
-                                    fontSize: '12px',
-                                    color: 'var(--text-muted)',
-                                    display: '-webkit-box',
-                                    WebkitLineClamp: 2,
-                                    WebkitBoxOrient: 'vertical',
-                                    overflow: 'hidden'
-                                }}>
-                                    {clip.script}
-                                </p>
-                            </div>
+                            {/* Clip Info / Edit Mode */}
+                            {editingClipIdx === idx ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                    <label className="label-caps">EDIT SCRIPT</label>
+                                    <textarea
+                                        value={editedScript}
+                                        onChange={(e) => setEditedScript(e.target.value)}
+                                        style={{
+                                            width: '100%',
+                                            minHeight: '100px',
+                                            padding: '12px',
+                                            borderRadius: '8px',
+                                            border: '1px solid var(--primary-color)',
+                                            backgroundColor: 'var(--surface-color)',
+                                            resize: 'vertical',
+                                            fontSize: '13px'
+                                        }}
+                                    />
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <button
+                                            onClick={() => handleSaveAndRegenerate(idx)}
+                                            className="btn-primary"
+                                            style={{ flex: 1, padding: '10px', fontSize: '12px' }}
+                                        >
+                                            <Check size={14} /> Save & Regenerate
+                                        </button>
+                                        <button
+                                            onClick={handleCancelEdit}
+                                            className="btn-primary"
+                                            style={{ padding: '10px', backgroundColor: 'var(--surface-color)', border: '1px solid var(--border-color)' }}
+                                        >
+                                            <X size={14} color="var(--text-color)" />
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <>
+                                    <div style={{ marginBottom: '12px' }}>
+                                        <h4 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '4px' }}>
+                                            Clip {idx + 1}
+                                        </h4>
+                                        <p style={{
+                                            fontSize: '12px',
+                                            color: 'var(--text-muted)',
+                                            display: '-webkit-box',
+                                            WebkitLineClamp: 2,
+                                            WebkitBoxOrient: 'vertical',
+                                            overflow: 'hidden'
+                                        }}>
+                                            {clip.script}
+                                        </p>
+                                    </div>
 
-                            {/* Actions */}
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                                <button
-                                    onClick={() => handleDownload(clip.videoUrl, `Clip ${idx + 1}.mp4`)}
-                                    className="btn-primary"
-                                    style={{ flex: 1, padding: '10px', fontSize: '12px' }}
-                                >
-                                    <Download size={14} /> Download
-                                </button>
-                            </div>
+                                    {/* Actions */}
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <button
+                                            onClick={() => handleDownload(clip.videoUrl, `Clip ${idx + 1}.mp4`)}
+                                            className="btn-primary"
+                                            style={{ flex: 1, padding: '10px', fontSize: '12px' }}
+                                            disabled={regeneratingIdx === idx}
+                                        >
+                                            <Download size={14} /> Download
+                                        </button>
+                                        <button
+                                            onClick={() => handleEditScript(idx)}
+                                            className="btn-primary"
+                                            style={{ padding: '10px', backgroundColor: 'var(--surface-color)', border: '1px solid var(--border-color)' }}
+                                            title="Edit script"
+                                            disabled={regeneratingIdx === idx}
+                                        >
+                                            <Pencil size={14} color="var(--text-color)" />
+                                        </button>
+                                    </div>
+                                </>
+                            )}
                         </div>
                     ))}
                 </div>

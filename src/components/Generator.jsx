@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Send, Loader2, CheckCircle2, AlertCircle, Download, RefreshCw, Sparkles, Upload, FileImage, X, Monitor, Smartphone, Square, FileArchive, AlertTriangle, FolderOpen, Plus, Wifi, WifiOff } from 'lucide-react';
+import { Camera, Send, Loader2, CheckCircle2, AlertCircle, Download, RefreshCw, Sparkles, Upload, FileImage, X, Monitor, Smartphone, Square, FileArchive, AlertTriangle, FolderOpen, Plus, Wifi, WifiOff, Pencil, Check } from 'lucide-react';
 import { generateAdVideo, pollTaskStatus, getDownloadUrl } from '../services/kieService';
 import { createBatch, saveGeneration, supabase } from '../services/supabase';
 import JSZip from 'jszip';
@@ -51,6 +51,8 @@ const Generator = ({ onComplete, onBatchComplete, setActiveTab, prefill, onClear
     const [currentBatchId, setCurrentBatchId] = useState(null);
     const [newClipScript, setNewClipScript] = useState('');
     const [isAddingClip, setIsAddingClip] = useState(false);
+    const [editingTaskId, setEditingTaskId] = useState(null);
+    const [editedScript, setEditedScript] = useState('');
     const fileInputRef = useRef(null);
 
     const messageIntervalRef = useRef(null);
@@ -255,6 +257,30 @@ const Generator = ({ onComplete, onBatchComplete, setActiveTab, prefill, onClear
 
     const handleRegenerateTask = (task) => {
         executeTask(task, context, gender, aspectRatio, imagePreview, currentBatchId);
+    };
+
+    const handleEditScript = (task) => {
+        setEditingTaskId(task.id);
+        setEditedScript(task.script);
+    };
+
+    const handleSaveScript = (taskId) => {
+        const updatedTask = batchTasks.find(t => t.id === taskId);
+        if (updatedTask) {
+            const taskWithNewScript = { ...updatedTask, script: editedScript };
+            setBatchTasks(prev => prev.map(t =>
+                t.id === taskId ? taskWithNewScript : t
+            ));
+            setEditingTaskId(null);
+            setEditedScript('');
+            // Trigger regeneration with the new script
+            executeTask(taskWithNewScript, context, gender, aspectRatio, imagePreview, currentBatchId);
+        }
+    };
+
+    const handleCancelEdit = () => {
+        setEditingTaskId(null);
+        setEditedScript('');
     };
 
     const handleReset = () => {
@@ -505,49 +531,122 @@ const Generator = ({ onComplete, onBatchComplete, setActiveTab, prefill, onClear
 
                                     {task.status === 'completed' ? (
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                            <div style={{
-                                                aspectRatio: aspectRatio.replace(':', '/'),
-                                                backgroundColor: 'var(--video-bg)',
-                                                borderRadius: '12px',
-                                                overflow: 'hidden',
-                                                border: '1px solid var(--border-color)',
-                                                position: 'relative'
-                                            }}>
-                                                <video
-                                                    src={task.result?.videoUrl}
-                                                    controls
-                                                    poster={imagePreview}
-                                                    style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                                                    onError={(e) => {
-                                                        console.error('❌ VIDEO LOAD ERROR for task', task.id, ':', e.target.error);
-                                                        console.error('Video URL:', task.result?.videoUrl);
-                                                        console.error('Error code:', e.target.error?.code);
-                                                        console.error('Error message:', e.target.error?.message);
-                                                        updateTask({
-                                                            status: 'error',
-                                                            error: `Video failed to load (Error ${e.target.error?.code || 'UNKNOWN'}). The video URL may be invalid or blocked by CORS.`
-                                                        });
-                                                    }}
-                                                    onLoadedMetadata={(e) => {
-                                                        console.log('✅ Video loaded successfully for task', task.id);
-                                                        console.log('Duration:', e.target.duration, 'seconds');
-                                                        console.log('Video dimensions:', e.target.videoWidth, 'x', e.target.videoHeight);
-                                                    }}
-                                                />
-                                            </div>
-                                            <div style={{ display: 'flex', gap: '10px' }}>
-                                                <button onClick={() => handleDownload(task.result?.videoUrl, `Clip ${task.id + 1}.mp4`)} className="btn-primary" style={{ flex: 1, padding: '10px' }}>
-                                                    <Download size={16} /> Download
-                                                </button>
-                                                <button
-                                                    onClick={() => handleRegenerateTask(task)}
-                                                    className="btn-primary"
-                                                    style={{ padding: '10px', backgroundColor: 'var(--surface-color)', border: '1px solid var(--border-color)' }}
-                                                    title="Regenerate this clip"
-                                                >
-                                                    <RefreshCw size={16} color="var(--text-color)" />
-                                                </button>
-                                            </div>
+                                            {editingTaskId === task.id ? (
+                                                /* Edit Mode */
+                                                <>
+                                                    <div style={{
+                                                        aspectRatio: aspectRatio.replace(':', '/'),
+                                                        backgroundColor: 'var(--video-bg)',
+                                                        borderRadius: '12px',
+                                                        overflow: 'hidden',
+                                                        border: '1px solid var(--border-color)',
+                                                        position: 'relative'
+                                                    }}>
+                                                        <video
+                                                            src={task.result?.videoUrl}
+                                                            controls
+                                                            poster={imagePreview}
+                                                            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                                                        />
+                                                    </div>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                        <label className="label-caps">EDIT SCRIPT</label>
+                                                        <textarea
+                                                            value={editedScript}
+                                                            onChange={(e) => setEditedScript(e.target.value)}
+                                                            style={{
+                                                                width: '100%',
+                                                                minHeight: '100px',
+                                                                padding: '12px',
+                                                                borderRadius: '8px',
+                                                                border: '1px solid var(--primary-color)',
+                                                                backgroundColor: 'var(--surface-color)',
+                                                                resize: 'vertical',
+                                                                fontSize: '13px'
+                                                            }}
+                                                        />
+                                                        <div style={{ display: 'flex', gap: '10px' }}>
+                                                            <button
+                                                                onClick={() => handleSaveScript(task.id)}
+                                                                className="btn-primary"
+                                                                style={{ flex: 1, padding: '10px' }}
+                                                            >
+                                                                <Check size={16} /> Save & Regenerate
+                                                            </button>
+                                                            <button
+                                                                onClick={handleCancelEdit}
+                                                                className="btn-primary"
+                                                                style={{ padding: '10px', backgroundColor: 'var(--surface-color)', border: '1px solid var(--border-color)' }}
+                                                            >
+                                                                <X size={16} color="var(--text-color)" />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                /* Normal View Mode */
+                                                <>
+                                                    <div style={{
+                                                        aspectRatio: aspectRatio.replace(':', '/'),
+                                                        backgroundColor: 'var(--video-bg)',
+                                                        borderRadius: '12px',
+                                                        overflow: 'hidden',
+                                                        border: '1px solid var(--border-color)',
+                                                        position: 'relative'
+                                                    }}>
+                                                        <video
+                                                            src={task.result?.videoUrl}
+                                                            controls
+                                                            poster={imagePreview}
+                                                            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                                                            onError={(e) => {
+                                                                console.error('❌ VIDEO LOAD ERROR for task', task.id, ':', e.target.error);
+                                                                console.error('Video URL:', task.result?.videoUrl);
+                                                                console.error('Error code:', e.target.error?.code);
+                                                                console.error('Error message:', e.target.error?.message);
+                                                            }}
+                                                            onLoadedMetadata={(e) => {
+                                                                console.log('✅ Video loaded successfully for task', task.id);
+                                                                console.log('Duration:', e.target.duration, 'seconds');
+                                                                console.log('Video dimensions:', e.target.videoWidth, 'x', e.target.videoHeight);
+                                                            }}
+                                                        />
+                                                    </div>
+                                                    {/* Script Preview */}
+                                                    <p style={{
+                                                        fontSize: '12px',
+                                                        color: 'var(--text-muted)',
+                                                        display: '-webkit-box',
+                                                        WebkitLineClamp: 2,
+                                                        WebkitBoxOrient: 'vertical',
+                                                        overflow: 'hidden',
+                                                        margin: 0
+                                                    }}>
+                                                        {task.script}
+                                                    </p>
+                                                    <div style={{ display: 'flex', gap: '10px' }}>
+                                                        <button onClick={() => handleDownload(task.result?.videoUrl, `Clip ${task.id + 1}.mp4`)} className="btn-primary" style={{ flex: 1, padding: '10px' }}>
+                                                            <Download size={16} /> Download
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleEditScript(task)}
+                                                            className="btn-primary"
+                                                            style={{ padding: '10px', backgroundColor: 'var(--surface-color)', border: '1px solid var(--border-color)' }}
+                                                            title="Edit script"
+                                                        >
+                                                            <Pencil size={16} color="var(--text-color)" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleRegenerateTask(task)}
+                                                            className="btn-primary"
+                                                            style={{ padding: '10px', backgroundColor: 'var(--surface-color)', border: '1px solid var(--border-color)' }}
+                                                            title="Regenerate this clip"
+                                                        >
+                                                            <RefreshCw size={16} color="var(--text-color)" />
+                                                        </button>
+                                                    </div>
+                                                </>
+                                            )}
                                         </div>
                                     ) : task.status === 'error' ? (
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
