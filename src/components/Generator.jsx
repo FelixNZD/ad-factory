@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Send, Loader2, CheckCircle2, AlertCircle, Download, RefreshCw, Sparkles, Upload, FileImage, X, Monitor, Smartphone, Square, FileArchive, AlertTriangle, FolderOpen, Plus, Wifi, WifiOff, Pencil, Check } from 'lucide-react';
-import { generateAdVideo, pollTaskStatus, getDownloadUrl } from '../services/kieService';
+import { Camera, Send, Loader2, CheckCircle2, AlertCircle, Download, RefreshCw, Sparkles, Upload, FileImage, X, Monitor, Smartphone, Square, FileArchive, AlertTriangle, FolderOpen, Plus, Wifi, WifiOff, Pencil, Check, Wand2 } from 'lucide-react';
+import { generateAdVideo, pollTaskStatus, getDownloadUrl, generateReferenceImage, pollImageTaskStatus } from '../services/kieService';
 import { createBatch, saveGeneration, supabase } from '../services/supabase';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
@@ -55,6 +55,12 @@ const Generator = ({ onComplete, onBatchComplete, setActiveTab, prefill, onClear
     const [isAddingClip, setIsAddingClip] = useState(false);
     const [editingTaskId, setEditingTaskId] = useState(null);
     const [editedScript, setEditedScript] = useState('');
+    // AI Image Generation state
+    const [actorImageMode, setActorImageMode] = useState('upload'); // 'upload' or 'generate'
+    const [imagePrompt, setImagePrompt] = useState('');
+    const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+    const [imageGenProgress, setImageGenProgress] = useState('');
+    const [generatedImagePreview, setGeneratedImagePreview] = useState('');
     const fileInputRef = useRef(null);
 
     const messageIntervalRef = useRef(null);
@@ -107,7 +113,70 @@ const Generator = ({ onComplete, onBatchComplete, setActiveTab, prefill, onClear
         if (file && file.type.startsWith('image/')) processFile(file);
     };
 
-    const removeImage = () => { setImageFile(null); setImagePreview(''); };
+    const removeImage = () => {
+        setImageFile(null);
+        setImagePreview('');
+        setGeneratedImagePreview('');
+    };
+
+    // AI Actor Image Generation
+    const handleGenerateActorImage = async () => {
+        if (!imagePrompt.trim()) return;
+
+        setIsGeneratingImage(true);
+        setImageGenProgress('Submitting to Nano Banana Pro...');
+        setGeneratedImagePreview('');
+
+        try {
+            const response = await generateReferenceImage(
+                {
+                    prompt: imagePrompt,
+                    aspectRatio: aspectRatio, // Use selected aspect ratio from Production Config
+                    resolution: '1K',
+                    outputFormat: 'png'
+                },
+                (step) => setImageGenProgress(step)
+            );
+
+            if (!response.taskId) {
+                throw new Error('Failed to start image generation');
+            }
+
+            setImageGenProgress('Generating actor image...');
+
+            // Poll for completion
+            let isComplete = false;
+            while (!isComplete) {
+                const pollResult = await pollImageTaskStatus(response.taskId);
+
+                if (pollResult.status === 'success' && pollResult.imageUrls?.length > 0) {
+                    const generatedUrl = pollResult.imageUrls[0];
+                    setGeneratedImagePreview(generatedUrl);
+                    setImageGenProgress('Image generated!');
+                    isComplete = true;
+                } else if (pollResult.status === 'fail') {
+                    throw new Error(pollResult.error || 'Image generation failed');
+                } else {
+                    // Still waiting
+                    await new Promise(r => setTimeout(r, 2000));
+                }
+            }
+        } catch (error) {
+            console.error('Actor image generation error:', error);
+            setImageGenProgress(`Error: ${error.message}`);
+        } finally {
+            setIsGeneratingImage(false);
+        }
+    };
+
+    const handleUseGeneratedImage = () => {
+        if (generatedImagePreview) {
+            setImagePreview(generatedImagePreview);
+            setImageFile(null); // No file, just URL
+            setGeneratedImagePreview('');
+            setImagePrompt('');
+        }
+    };
 
     const startDynamicUpdates = () => {
         let msgIndex = 0;
@@ -708,17 +777,177 @@ const Generator = ({ onComplete, onBatchComplete, setActiveTab, prefill, onClear
 
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                 <label className="label-caps">ACTOR IMAGE</label>
-                                {!imagePreview ? (
-                                    <div onDragOver={handleDragOver} onDrop={handleDrop} onClick={() => fileInputRef.current?.click()} className="upload-zone">
-                                        <Upload size={32} color="var(--text-muted)" style={{ marginBottom: '12px' }} />
-                                        <p style={{ fontWeight: '600', fontSize: '14px' }}>Drop actor image or click</p>
-                                        <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" style={{ display: 'none' }} />
+
+                                {/* Tab Switcher */}
+                                {!imagePreview && (
+                                    <div style={{ display: 'flex', gap: '0', marginBottom: '8px' }}>
+                                        <button
+                                            onClick={() => setActorImageMode('upload')}
+                                            style={{
+                                                flex: 1,
+                                                padding: '10px 16px',
+                                                background: actorImageMode === 'upload' ? 'var(--surface-hover)' : 'transparent',
+                                                border: '1px solid var(--border-color)',
+                                                borderRight: 'none',
+                                                borderRadius: '8px 0 0 8px',
+                                                color: actorImageMode === 'upload' ? 'var(--text-color)' : 'var(--text-muted)',
+                                                fontSize: '12px',
+                                                fontWeight: '600',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                gap: '6px',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            <Upload size={14} /> Upload
+                                        </button>
+                                        <button
+                                            onClick={() => setActorImageMode('generate')}
+                                            style={{
+                                                flex: 1,
+                                                padding: '10px 16px',
+                                                background: actorImageMode === 'generate' ? 'rgba(255, 0, 0, 0.1)' : 'transparent',
+                                                border: '1px solid var(--border-color)',
+                                                borderRadius: '0 8px 8px 0',
+                                                color: actorImageMode === 'generate' ? 'var(--primary-color)' : 'var(--text-muted)',
+                                                fontSize: '12px',
+                                                fontWeight: '600',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                gap: '6px',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            <Wand2 size={14} /> Generate with AI
+                                        </button>
                                     </div>
+                                )}
+
+                                {/* Content based on mode */}
+                                {!imagePreview ? (
+                                    actorImageMode === 'upload' ? (
+                                        /* Upload Mode */
+                                        <div onDragOver={handleDragOver} onDrop={handleDrop} onClick={() => fileInputRef.current?.click()} className="upload-zone">
+                                            <Upload size={32} color="var(--text-muted)" style={{ marginBottom: '12px' }} />
+                                            <p style={{ fontWeight: '600', fontSize: '14px' }}>Drop actor image or click</p>
+                                            <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" style={{ display: 'none' }} />
+                                        </div>
+                                    ) : (
+                                        /* Generate Mode */
+                                        <div className="card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                            <div>
+                                                <label className="label-caps" style={{ marginBottom: '8px', display: 'block' }}>DESCRIBE YOUR ACTOR</label>
+                                                <textarea
+                                                    value={imagePrompt}
+                                                    onChange={(e) => setImagePrompt(e.target.value)}
+                                                    placeholder="e.g. 65 year old man, casual polo shirt, friendly smile, neutral gray background, professional headshot style..."
+                                                    style={{
+                                                        width: '100%',
+                                                        minHeight: '80px',
+                                                        padding: '12px',
+                                                        borderRadius: '8px',
+                                                        border: '1px solid var(--border-color)',
+                                                        backgroundColor: 'var(--surface-color)',
+                                                        resize: 'vertical',
+                                                        fontSize: '13px'
+                                                    }}
+                                                    disabled={isGeneratingImage}
+                                                />
+                                            </div>
+
+                                            {/* Generated Image Preview */}
+                                            {generatedImagePreview && (
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                    <img
+                                                        src={generatedImagePreview}
+                                                        alt="Generated actor"
+                                                        style={{
+                                                            width: '100%',
+                                                            maxHeight: '200px',
+                                                            objectFit: 'contain',
+                                                            borderRadius: '8px',
+                                                            border: '1px solid var(--border-color)'
+                                                        }}
+                                                    />
+                                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                                        <button
+                                                            onClick={handleUseGeneratedImage}
+                                                            className="btn-primary"
+                                                            style={{ flex: 1, padding: '10px' }}
+                                                        >
+                                                            <CheckCircle2 size={16} /> Use This Image
+                                                        </button>
+                                                        <button
+                                                            onClick={handleGenerateActorImage}
+                                                            style={{
+                                                                padding: '10px',
+                                                                background: 'var(--surface-color)',
+                                                                border: '1px solid var(--border-color)',
+                                                                borderRadius: '8px',
+                                                                color: 'var(--text-color)',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                gap: '6px',
+                                                                cursor: 'pointer'
+                                                            }}
+                                                            disabled={isGeneratingImage}
+                                                        >
+                                                            <RefreshCw size={16} /> Regenerate
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Progress/Status */}
+                                            {isGeneratingImage && (
+                                                <div style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '10px',
+                                                    padding: '12px',
+                                                    backgroundColor: 'rgba(255, 0, 0, 0.05)',
+                                                    borderRadius: '8px',
+                                                    fontSize: '13px',
+                                                    color: 'var(--text-muted)'
+                                                }}>
+                                                    <Loader2 size={16} className="animate-spin" style={{ color: 'var(--primary-color)' }} />
+                                                    {imageGenProgress || 'Generating...'}
+                                                </div>
+                                            )}
+
+                                            {/* Generate Button */}
+                                            {!generatedImagePreview && (
+                                                <button
+                                                    onClick={handleGenerateActorImage}
+                                                    className="btn-primary"
+                                                    style={{ width: '100%', padding: '12px' }}
+                                                    disabled={!imagePrompt.trim() || isGeneratingImage}
+                                                >
+                                                    {isGeneratingImage ? (
+                                                        <>
+                                                            <Loader2 size={16} className="animate-spin" /> Generating...
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <Wand2 size={16} /> Generate Actor Image
+                                                        </>
+                                                    )}
+                                                </button>
+                                            )}
+
+                                            <p style={{ fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center' }}>
+                                                Powered by Nano Banana Pro • Uses API credits
+                                            </p>
+                                        </div>
+                                    )
                                 ) : (
+                                    /* Image Loaded State */
                                     <div className="card" style={{ padding: '12px', display: 'flex', alignItems: 'center', gap: '16px' }}>
                                         <img src={imagePreview} style={{ width: '60px', height: '60px', borderRadius: '8px', objectFit: 'cover' }} />
                                         <div style={{ flex: 1 }}>
-                                            <p style={{ fontSize: '14px', fontWeight: '600' }}>{imageFile?.name || 'Image Loaded'}</p>
+                                            <p style={{ fontSize: '14px', fontWeight: '600' }}>{imageFile?.name || 'AI Generated Actor'}</p>
                                             <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Ready for production</p>
                                         </div>
                                         <button onClick={removeImage} style={{ background: 'none', border: 'none', color: 'var(--text-muted)' }}><X size={20} /></button>

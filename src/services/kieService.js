@@ -288,6 +288,123 @@ export const pollTaskStatus = async (taskId) => {
 };
 
 /**
+ * Generates a reference/actor image using Nano Banana Pro model
+ * @param {Object} options - Generation options
+ * @param {string} options.prompt - Text description of the image to generate
+ * @param {string} options.aspectRatio - Aspect ratio (1:1, 3:4, 4:3, 9:16, 16:9, etc.) Default: 1:1
+ * @param {string} options.resolution - Resolution (1K, 2K, 4K) Default: 1K
+ * @param {string} options.outputFormat - Output format (png, jpg) Default: png
+ * @param {Array} options.referenceImages - Optional array of reference image URLs (up to 8)
+ * @param {Function} onProgress - Progress callback
+ * @returns {Object} { taskId }
+ */
+export const generateReferenceImage = async (options, onProgress) => {
+  const {
+    prompt,
+    aspectRatio = '1:1',
+    resolution = '1K',
+    outputFormat = 'png',
+    referenceImages = []
+  } = options;
+
+  if (!prompt || prompt.trim().length === 0) {
+    throw new Error('Prompt is required for image generation');
+  }
+
+  if (onProgress) onProgress('Submitting to Nano Banana Pro...', 10);
+
+  const requestBody = {
+    model: 'nano-banana-pro',
+    input: {
+      prompt: prompt.trim(),
+      image_input: referenceImages,
+      aspect_ratio: aspectRatio,
+      resolution: resolution,
+      output_format: outputFormat
+    }
+  };
+
+  try {
+    const response = await fetchWithTimeout(`${KIE_PROXY}/api/v1/jobs/createTask`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${KIE_API_KEY}`
+      },
+      body: JSON.stringify(requestBody)
+    });
+
+    const data = await handleResponse(response);
+
+    if (data.code !== 200) {
+      throw new Error(data.msg || 'Failed to create image generation task');
+    }
+
+    if (!data.data?.taskId) {
+      throw new Error('API failed to return a valid Task ID');
+    }
+
+    if (onProgress) onProgress('Image generation started...', 20);
+
+    return { taskId: data.data.taskId };
+  } catch (error) {
+    console.error('Nano Banana Pro Generation Error:', error);
+    if (error.name === 'AbortError') throw new Error('Image generation request timed out');
+    throw error;
+  }
+};
+
+/**
+ * Polls the status of an image generation task
+ * @param {string} taskId - The task ID to poll
+ * @returns {Object} { status: 'waiting'|'success'|'fail', imageUrls: string[], error: string|null }
+ */
+export const pollImageTaskStatus = async (taskId) => {
+  try {
+    const response = await fetchWithTimeout(
+      `${KIE_PROXY}/api/v1/jobs/recordInfo?taskId=${taskId}`,
+      {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${KIE_API_KEY}` }
+      }
+    );
+
+    const data = await handleResponse(response);
+    console.log('Nano Banana Pro Poll:', data);
+
+    if (data.code !== 200 || !data.data) {
+      throw new Error(data.msg || 'Failed to get task status');
+    }
+
+    const taskData = data.data;
+    const state = taskData.state; // 'waiting', 'success', 'fail'
+
+    // Parse resultJson if available
+    let imageUrls = [];
+    if (taskData.resultJson) {
+      try {
+        const resultData = typeof taskData.resultJson === 'string'
+          ? JSON.parse(taskData.resultJson)
+          : taskData.resultJson;
+        imageUrls = resultData.resultUrls || [];
+      } catch (parseError) {
+        console.warn('Failed to parse resultJson:', parseError);
+      }
+    }
+
+    return {
+      status: state,
+      imageUrls: imageUrls,
+      error: taskData.failMsg || null,
+      costTime: taskData.costTime || null
+    };
+  } catch (error) {
+    console.error('Image task polling error:', error);
+    throw error;
+  }
+};
+
+/**
  * Gets a temporary downloadable URL for a generated file
  * Bypasses CORS and CDN restrictions for downloads
  */
