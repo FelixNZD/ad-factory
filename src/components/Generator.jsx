@@ -255,6 +255,10 @@ const Generator = ({ onComplete, onBatchComplete, setActiveTab, prefill, onClear
             setBatchTasks(prev => prev.map(t => t.id === task.id ? { ...t, ...updates } : t));
         };
 
+        // Maximum polling time: 10 minutes (Kie videos typically complete in 2-5 minutes)
+        const MAX_POLLING_TIME_MS = 10 * 60 * 1000;
+        const pollingStartTime = Date.now();
+
         try {
             // Reset task state for regeneration
             updateTask({ status: 'submitting', progress: 5, error: null, result: null });
@@ -271,6 +275,11 @@ const Generator = ({ onComplete, onBatchComplete, setActiveTab, prefill, onClear
 
             let isTaskDone = false;
             while (!isTaskDone) {
+                // Check for polling timeout
+                if (Date.now() - pollingStartTime > MAX_POLLING_TIME_MS) {
+                    throw new Error('Generation timed out after 10 minutes. The server may be overloaded. Please try again.');
+                }
+
                 const pollResponse = await pollTaskStatus(response.taskId);
 
                 if (pollResponse.status === 'completed' && pollResponse.videoUrl) {
@@ -312,7 +321,9 @@ const Generator = ({ onComplete, onBatchComplete, setActiveTab, prefill, onClear
                     }
                     isTaskDone = true;
                 } else if (pollResponse.status === 'failed') {
-                    throw new Error(pollResponse.error || 'Production failed.');
+                    // Enhanced error message for rejections
+                    const errorMsg = pollResponse.error || 'Video was rejected by the AI engine';
+                    throw new Error(errorMsg);
                 }
 
                 if (pollResponse.progress > 0) {
@@ -721,13 +732,109 @@ const Generator = ({ onComplete, onBatchComplete, setActiveTab, prefill, onClear
                                             )}
                                         </div>
                                     ) : task.status === 'error' ? (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                            <div style={{ padding: '12px', backgroundColor: 'rgba(255, 0, 0, 0.05)', borderRadius: '10px', fontSize: '12px', color: 'var(--error-color)', display: 'flex', gap: '8px' }}>
-                                                <AlertCircle size={14} /> {task.error}
-                                            </div>
-                                            <button onClick={() => handleRegenerateTask(task)} className="btn-primary" style={{ width: '100%' }}>
-                                                <RefreshCw size={16} color="white" /> Retry Clip
-                                            </button>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                            {editingTaskId === task.id ? (
+                                                /* Edit Mode for Error */
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                    <label className="label-caps">EDIT SCRIPT & RETRY</label>
+                                                    <textarea
+                                                        value={editedScript}
+                                                        onChange={(e) => setEditedScript(e.target.value)}
+                                                        style={{
+                                                            width: '100%',
+                                                            minHeight: '120px',
+                                                            padding: '12px',
+                                                            borderRadius: '8px',
+                                                            border: '1px solid var(--primary-color)',
+                                                            backgroundColor: 'var(--surface-color)',
+                                                            resize: 'vertical',
+                                                            fontSize: '13px'
+                                                        }}
+                                                    />
+                                                    <div style={{ display: 'flex', gap: '10px' }}>
+                                                        <button
+                                                            onClick={() => handleSaveScript(task.id)}
+                                                            className="btn-primary"
+                                                            style={{ flex: 1, padding: '12px' }}
+                                                        >
+                                                            <Check size={16} /> Save & Regenerate
+                                                        </button>
+                                                        <button
+                                                            onClick={handleCancelEdit}
+                                                            className="btn-primary"
+                                                            style={{ padding: '12px', backgroundColor: 'var(--surface-color)', border: '1px solid var(--border-color)' }}
+                                                        >
+                                                            <X size={16} color="var(--text-color)" />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                /* Error View Mode */
+                                                <>
+                                                    <div style={{
+                                                        padding: '16px',
+                                                        backgroundColor: 'rgba(255, 0, 0, 0.05)',
+                                                        borderRadius: '12px',
+                                                        border: '1px solid rgba(255, 0, 0, 0.15)'
+                                                    }}>
+                                                        <div style={{
+                                                            display: 'flex',
+                                                            alignItems: 'flex-start',
+                                                            gap: '10px',
+                                                            marginBottom: '12px'
+                                                        }}>
+                                                            <AlertCircle size={18} color="var(--error-color)" style={{ flexShrink: 0, marginTop: '2px' }} />
+                                                            <div>
+                                                                <div style={{
+                                                                    fontSize: '13px',
+                                                                    fontWeight: '700',
+                                                                    color: 'var(--error-color)',
+                                                                    marginBottom: '4px'
+                                                                }}>
+                                                                    Generation Failed
+                                                                </div>
+                                                                <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.5' }}>
+                                                                    {task.error}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div style={{
+                                                            fontSize: '11px',
+                                                            color: 'var(--text-muted)',
+                                                            padding: '10px 12px',
+                                                            backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                                                            borderRadius: '8px',
+                                                            lineHeight: '1.6'
+                                                        }}>
+                                                            <strong style={{ color: 'var(--text-color)' }}>💡 Tips:</strong> Try simplifying your script, avoid controversial topics, or use a different actor image.
+                                                        </div>
+                                                    </div>
+                                                    <div style={{ display: 'flex', gap: '10px' }}>
+                                                        <button
+                                                            onClick={() => handleRegenerateTask(task)}
+                                                            className="btn-primary"
+                                                            style={{
+                                                                flex: 1,
+                                                                padding: '14px',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                gap: '8px'
+                                                            }}
+                                                        >
+                                                            <RefreshCw size={16} color="white" /> Regenerate Clip
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleEditScript(task)}
+                                                            className="btn-primary"
+                                                            style={{ padding: '14px', backgroundColor: 'var(--surface-color)', border: '1px solid var(--border-color)', width: '54px' }}
+                                                            title="Edit script"
+                                                        >
+                                                            <Pencil size={18} color="var(--text-color)" />
+                                                        </button>
+                                                    </div>
+                                                </>
+                                            )}
                                         </div>
                                     ) : (
                                         <div style={{ padding: '20px 0' }}>

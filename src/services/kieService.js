@@ -203,11 +203,29 @@ function parsePollingData(data) {
     containsVideo
   );
 
+  // Enhanced failure detection - catch all rejection scenarios from Kie
+  const hasErrorMessage = !!(
+    taskData.errorMsg ||
+    taskData.errorMessage ||
+    taskData.failMsg ||
+    taskData.failMessage ||
+    taskData.rejectReason ||
+    taskData.rejectMsg
+  );
+
   const isFailed = (
     taskData.status === 3 ||
     taskData.status === 4 ||
+    taskData.status === -1 ||
     taskData.state === 'fail' ||
-    taskData.state === 'failed'
+    taskData.state === 'failed' ||
+    taskData.state === 'rejected' ||
+    taskData.state === 'error' ||
+    taskData.state === 'cancelled' ||
+    taskData.successFlag === 0 ||
+    taskData.successFlag === -1 ||
+    // If there's an error message and no video URL, treat as failed
+    (hasErrorMessage && !containsVideo)
   );
 
   // Exhaustive URL extraction
@@ -223,11 +241,23 @@ function parsePollingData(data) {
     finalUrl = taskData.recordInfo.videoUrl;
   }
 
+  // Comprehensive error message extraction
+  const errorMessage =
+    taskData.errorMsg ||
+    taskData.errorMessage ||
+    taskData.failMsg ||
+    taskData.failMessage ||
+    taskData.rejectReason ||
+    taskData.rejectMsg ||
+    taskData.reason ||
+    taskData.msg ||
+    null;
+
   return {
     isCompleted: isSuccess && !!finalUrl,
     isFailed: isFailed,
     videoUrl: finalUrl,
-    error: taskData.errorMsg || taskData.errorMessage || taskData.msg || null,
+    error: errorMessage,
     progress: taskData.progress || 0
   };
 }
@@ -248,7 +278,8 @@ export const pollTaskStatus = async (taskId) => {
     try {
       const response = await fetchWithTimeout(url, {
         method: 'GET',
-        headers: { 'Authorization': `Bearer ${KIE_API_KEY}` }
+        headers: { 'Authorization': `Bearer ${KIE_API_KEY}` },
+        timeout: 10000 // 10 second timeout for polling
       });
 
       if (!response.ok) continue;
@@ -269,6 +300,13 @@ export const pollTaskStatus = async (taskId) => {
         if (parsed.isCompleted && !parsed.videoUrl) {
           console.warn('⚠️ Task marked complete but no video URL found!');
           console.warn('Raw task data:', data.data);
+        }
+
+        if (parsed.isFailed) {
+          console.error('❌ Kie.ai task FAILED/REJECTED:', {
+            error: parsed.error,
+            rawData: data.data
+          });
         }
 
         return {
