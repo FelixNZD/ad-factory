@@ -855,18 +855,44 @@ const Generator = ({ onComplete, onBatchComplete, setActiveTab, prefill, onClear
                                             )}
                                         </div>
                                     ) : (
-                                        <div style={{ padding: '20px 0' }}>
-                                            <div className="progress-bar-container" style={{ marginBottom: '10px' }}>
-                                                <div className="progress-bar-fill" style={{ width: `${task.progress}%` }} />
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                            <div className="ai-loader-container" style={{ aspectRatio: aspectRatio.replace(':', '/') }}>
+                                                <div className="ai-loader-scan" />
+                                                <div className="ai-loader-ring" />
+                                                <div className="ai-loader-core" />
+                                                <div style={{
+                                                    position: 'absolute',
+                                                    bottom: '20px',
+                                                    left: '0',
+                                                    right: '0',
+                                                    textAlign: 'center',
+                                                    zIndex: 3
+                                                }}>
+                                                    <div className="shimmer-text" style={{
+                                                        fontSize: '12px',
+                                                        fontWeight: '800',
+                                                        letterSpacing: '1px',
+                                                        textTransform: 'uppercase'
+                                                    }}>
+                                                        Rendering Neural Bytes
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600' }}>
-                                                <span>
-                                                    {task.status === 'preparing' && 'PREPARING CLIP...'}
-                                                    {task.status === 'uploading' && 'UPLOADING ACTOR IMAGE...'}
-                                                    {task.status === 'submitting' && 'SUBMITTING TO AI ENGINE...'}
-                                                    {(task.status === 'processing' || !['preparing', 'uploading', 'submitting'].includes(task.status)) && 'AI RENDER IN PROGRESS...'}
-                                                </span>
-                                                <span>{Math.floor(task.progress)}%</span>
+
+                                            <div>
+                                                <div className="progress-bar-container" style={{ marginBottom: '10px' }}>
+                                                    <div className="progress-bar-fill" style={{ width: `${task.progress}%` }} />
+                                                </div>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600' }}>
+                                                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                        <Loader2 size={12} className="animate-spin" />
+                                                        {task.status === 'preparing' && 'PREPARING CLIP...'}
+                                                        {task.status === 'uploading' && 'UPLOADING ACTOR IMAGE...'}
+                                                        {task.status === 'submitting' && 'SUBMITTING TO AI ENGINE...'}
+                                                        {(task.status === 'processing' || !['preparing', 'uploading', 'submitting'].includes(task.status)) && 'AI RENDER IN PROGRESS...'}
+                                                    </span>
+                                                    <span>{Math.floor(task.progress)}%</span>
+                                                </div>
                                             </div>
                                         </div>
                                     )}
