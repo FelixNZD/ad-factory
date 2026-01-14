@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Camera, Send, Loader2, CheckCircle2, AlertCircle, Download, RefreshCw, Sparkles, Upload, FileImage, X, Monitor, Smartphone, Square, FileArchive, AlertTriangle, FolderOpen, Plus, Wifi, WifiOff, Pencil, Check, Wand2 } from 'lucide-react';
-import { generateAdVideo, pollTaskStatus, getDownloadUrl, generateReferenceImage, pollImageTaskStatus } from '../services/kieService';
+import { generateAdVideo, pollTaskStatus, getDownloadUrl, generateReferenceImage, pollImageTaskStatus, uploadImage } from '../services/kieService';
 import { createBatch, saveGeneration, supabase } from '../services/supabase';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
@@ -241,8 +241,23 @@ const Generator = ({ onComplete, onBatchComplete, setActiveTab, prefill, onClear
 
         setBatchTasks(initialTasks);
 
-        // Run all tasks in parallel
-        initialTasks.forEach(task => executeTask(task, context, gender, aspectRatio, imagePreview, batchId));
+        // Upload image ONCE before starting parallel tasks (avoids 5x simultaneous uploads timing out)
+        let uploadedImageUrl = imagePreview;
+        if (imagePreview && imagePreview.startsWith('data:')) {
+            try {
+                console.log('📤 Uploading actor image once for all clips...');
+                uploadedImageUrl = await uploadImage(imagePreview);
+                console.log('✅ Actor image uploaded:', uploadedImageUrl);
+            } catch (uploadError) {
+                console.error('❌ Image upload failed:', uploadError);
+                // Mark all tasks as failed
+                setBatchTasks(prev => prev.map(t => ({ ...t, status: 'error', error: uploadError.message })));
+                return;
+            }
+        }
+
+        // Run all tasks in parallel (using the pre-uploaded image URL)
+        initialTasks.forEach(task => executeTask(task, context, gender, aspectRatio, uploadedImageUrl, batchId));
 
         // Notify batch created
         if (onBatchComplete && batch) {
