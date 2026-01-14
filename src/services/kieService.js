@@ -204,7 +204,8 @@ function parsePollingData(data) {
   );
 
   // Enhanced failure detection - catch all rejection scenarios from Kie
-  const hasErrorMessage = !!(
+  // We check for EXPLICIT error fields that Kie uses when a task terminal-fails
+  const hasExplicitError = !!(
     taskData.errorMsg ||
     taskData.errorMessage ||
     taskData.failMsg ||
@@ -224,8 +225,9 @@ function parsePollingData(data) {
     taskData.state === 'cancelled' ||
     taskData.successFlag === 0 ||
     taskData.successFlag === -1 ||
-    // If there's an error message and no video URL, treat as failed
-    (hasErrorMessage && !containsVideo)
+    // Only treat "hasErrorMessage" as failure if the status is actually terminal
+    // (Kie sometimes includes msg: "success" or progress updates in common fields)
+    (hasExplicitError && !containsVideo && (taskData.status > 2 || taskData.status < 0 || taskData.state === 'fail' || taskData.state === 'failed' || taskData.state === 'rejected'))
   );
 
   // Exhaustive URL extraction
