@@ -223,8 +223,8 @@ function parsePollingData(data) {
     taskData.state === 'rejected' ||
     taskData.state === 'error' ||
     taskData.state === 'cancelled' ||
-    taskData.successFlag === 0 ||
-    taskData.successFlag === -1 ||
+    taskData.successFlag === 2 ||  // Per Kie docs: 2 = failed
+    taskData.successFlag === 3 ||  // Per Kie docs: 3 = failed
     // Only treat "hasErrorMessage" as failure if the status is actually terminal
     // (Kie sometimes includes msg: "success" or progress updates in common fields)
     (hasExplicitError && !containsVideo && (taskData.status > 2 || taskData.status < 0 || taskData.state === 'fail' || taskData.state === 'failed' || taskData.state === 'rejected'))
