@@ -201,34 +201,7 @@ const Generator = ({ onComplete, onBatchComplete, setActiveTab, prefill, onClear
     const handleGenerate = async () => {
         if (snippets.length === 0 || snippets.every(s => !s.trim()) || !imagePreview) return;
 
-        setStatus('generating');
-        setErrorMessage('');
-
-        // Create a batch first
-        const generatedBatchName = batchName.trim() || `Batch - ${new Date().toLocaleDateString()}`;
-        console.log('📦 Creating batch:', generatedBatchName);
-
-        const batch = await createBatch({
-            name: generatedBatchName,
-            imageUrl: imagePreview,
-            aspectRatio: aspectRatio,
-            gender: gender,
-            accent: accent,
-            workspaceId: 'axe-revenue'
-        }, user?.email);
-
-        console.log('📦 Batch creation result:', batch);
-
-        if (!batch || !batch.id) {
-            console.error('❌ Failed to create batch! Clips will not be organized.');
-            alert('Warning: Failed to create batch in database. Clips may appear as Legacy. Check console for errors.');
-        }
-
-        const batchId = batch?.id || null;
-        console.log('📦 Using batch ID:', batchId);
-        setCurrentBatchId(batchId);
-
-        // Initialize tasks
+        // Initialize tasks IMMEDIATELY so clip cards appear right away
         const initialTasks = snippets.map((s, i) => ({
             id: i,
             script: s,
@@ -239,22 +212,52 @@ const Generator = ({ onComplete, onBatchComplete, setActiveTab, prefill, onClear
             displayName: `Clip ${i + 1}`
         })).filter(t => t.script.trim().length > 0);
 
+        setStatus('generating');
+        setErrorMessage('');
         setBatchTasks(initialTasks);
 
-        // Upload image ONCE before starting parallel tasks (avoids 5x simultaneous uploads timing out)
+        // Update all tasks to show "uploading" status
+        const updateAllTasks = (updates) => {
+            setBatchTasks(prev => prev.map(t => ({ ...t, ...updates })));
+        };
+
+        // Upload image FIRST (show uploading status)
         let uploadedImageUrl = imagePreview;
         if (imagePreview && imagePreview.startsWith('data:')) {
+            updateAllTasks({ status: 'uploading', progress: 5 });
             try {
                 console.log('📤 Uploading actor image once for all clips...');
                 uploadedImageUrl = await uploadImage(imagePreview);
                 console.log('✅ Actor image uploaded:', uploadedImageUrl);
             } catch (uploadError) {
                 console.error('❌ Image upload failed:', uploadError);
-                // Mark all tasks as failed
-                setBatchTasks(prev => prev.map(t => ({ ...t, status: 'error', error: uploadError.message })));
+                updateAllTasks({ status: 'error', error: uploadError.message });
                 return;
             }
         }
+
+        // Create batch in database (can happen in parallel with generation)
+        const generatedBatchName = batchName.trim() || `Batch - ${new Date().toLocaleDateString()}`;
+        console.log('📦 Creating batch:', generatedBatchName);
+
+        const batch = await createBatch({
+            name: generatedBatchName,
+            imageUrl: uploadedImageUrl, // Use uploaded URL, not base64
+            aspectRatio: aspectRatio,
+            gender: gender,
+            accent: accent,
+            workspaceId: 'axe-revenue'
+        }, user?.email);
+
+        console.log('📦 Batch creation result:', batch);
+
+        if (!batch || !batch.id) {
+            console.error('❌ Failed to create batch! Clips will not be organized.');
+        }
+
+        const batchId = batch?.id || null;
+        console.log('📦 Using batch ID:', batchId);
+        setCurrentBatchId(batchId);
 
         // Run all tasks in parallel (using the pre-uploaded image URL)
         initialTasks.forEach(task => executeTask(task, context, gender, aspectRatio, uploadedImageUrl, batchId));
@@ -857,7 +860,12 @@ const Generator = ({ onComplete, onBatchComplete, setActiveTab, prefill, onClear
                                                 <div className="progress-bar-fill" style={{ width: `${task.progress}%` }} />
                                             </div>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600' }}>
-                                                <span>AI RENDER IN PROGRESS...</span>
+                                                <span>
+                                                    {task.status === 'preparing' && 'PREPARING CLIP...'}
+                                                    {task.status === 'uploading' && 'UPLOADING ACTOR IMAGE...'}
+                                                    {task.status === 'submitting' && 'SUBMITTING TO AI ENGINE...'}
+                                                    {(task.status === 'processing' || !['preparing', 'uploading', 'submitting'].includes(task.status)) && 'AI RENDER IN PROGRESS...'}
+                                                </span>
                                                 <span>{Math.floor(task.progress)}%</span>
                                             </div>
                                         </div>
