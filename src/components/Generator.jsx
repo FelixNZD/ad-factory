@@ -470,7 +470,7 @@ const Generator = ({ onComplete, onBatchComplete, setActiveTab, prefill, onClear
                         <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div>
                                 <h2 style={{ fontSize: '20px', fontWeight: '800' }}>
-                                    {batchTasks.every(t => t.status === 'completed' || t.status === 'error') ? 'Production Finished' : 'Producing Clips...'}
+                                    {batchTasks.length > 0 && batchTasks.every(t => t.status === 'completed' || t.status === 'error') ? 'Production Finished' : 'Producing Clips...'}
                                 </h2>
                                 <p className="section-subtitle">
                                     {batchTasks.filter(t => t.status === 'completed').length} of {batchTasks.length} clips ready
