@@ -22,18 +22,23 @@ const PRODUCTION_MESSAGES = [
     "Wrapping up UGC performance..."
 ];
 
-const getPresetConfig = (accent) => ({
-    name: `${accent === 'australian' ? 'Australian' : 'American'} Life Insurance`,
-    cost: '0.25 Credits',
-    basePrompt: (script, context, gender) => {
-        const actor = gender === 'male' ? 'Man' : 'Woman';
-        const subject = gender === 'male' ? 'He' : 'She';
-        const possessive = gender === 'male' ? 'his' : 'her';
-        const accentName = accent === 'australian' ? 'Australian' : 'American';
+const getPresetConfig = (accent) => {
+    let accentName = 'American';
+    if (accent === 'australian') accentName = 'Australian';
+    if (accent === 'new zealand') accentName = 'New Zealand';
 
-        return `Make the ${actor} in the video speak with a clear ${accentName} accent while delivering the following lines. ${subject} is mid 60s and is talking about ${possessive} experience with life insurance. The voice should be direct, not too expressive, just matter of fact talking about ${possessive} experience.\n\n"${script}"${context ? `\n\nAdditional Context: ${context}` : ''}`
-    }
-});
+    return {
+        name: `${accentName} Life Insurance`,
+        cost: '0.25 Credits',
+        basePrompt: (script, context, gender) => {
+            const actor = gender === 'male' ? 'Man' : 'Woman';
+            const subject = gender === 'male' ? 'He' : 'She';
+            const possessive = gender === 'male' ? 'his' : 'her';
+
+            return `Make the ${actor} in the video speak with a clear ${accentName} accent while delivering the following lines. ${subject} is mid 60s and is talking about ${possessive} experience with life insurance. The voice should be direct, not too expressive, just matter of fact talking about ${possessive} experience.\n\n"${script}"${context ? `\n\nAdditional Context: ${context}` : ''}`
+        }
+    };
+};
 
 const Generator = ({ onComplete, onBatchComplete, setActiveTab, prefill, onClearPrefill, user }) => {
     const [gender, setGender] = useState('male');
@@ -1139,7 +1144,7 @@ const Generator = ({ onComplete, onBatchComplete, setActiveTab, prefill, onClear
                                 <div style={{ marginBottom: '24px' }}>
                                     <label className="label-caps">ACCENT</label>
                                     <div style={{ display: 'flex', gap: '10px' }}>
-                                        {['australian', 'american'].map(a => (
+                                        {['australian', 'american', 'new zealand'].map(a => (
                                             <button
                                                 key={a}
                                                 onClick={() => setAccent(a)}
@@ -1158,7 +1163,7 @@ const Generator = ({ onComplete, onBatchComplete, setActiveTab, prefill, onClear
                                                     gap: '8px'
                                                 }}
                                             >
-                                                {a === 'australian' ? '🇦🇺' : '🇺🇸'} {a}
+                                                {a === 'australian' ? '🇦🇺' : a === 'american' ? '🇺🇸' : '🇳🇿'} {a}
                                             </button>
                                         ))}
                                     </div>

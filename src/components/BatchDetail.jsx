@@ -5,17 +5,22 @@ import { generateAdVideo, pollTaskStatus, getDownloadUrl } from '../services/kie
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 
-const getPresetConfig = (accent = 'australian') => ({
-    name: `${accent === 'australian' ? 'Australian' : 'American'} Life Insurance`,
-    basePrompt: (script, context, gender) => {
-        const actor = gender === 'male' ? 'Man' : 'Woman';
-        const subject = gender === 'male' ? 'He' : 'She';
-        const possessive = gender === 'male' ? 'his' : 'her';
-        const accentName = accent === 'australian' ? 'Australian' : 'American';
+const getPresetConfig = (accent = 'australian') => {
+    let accentName = 'American';
+    if (accent === 'australian') accentName = 'Australian';
+    if (accent === 'new zealand') accentName = 'New Zealand';
 
-        return `Make the ${actor} in the video speak with a clear ${accentName} accent while delivering the following lines. ${subject} is mid 60s and is talking about ${possessive} experience with life insurance. The voice should be direct, not too expressive, just matter of fact talking about ${possessive} experience.\n\n"${script}"${context ? `\n\nAdditional Context: ${context}` : ''}`
-    }
-});
+    return {
+        name: `${accentName} Life Insurance`,
+        basePrompt: (script, context, gender) => {
+            const actor = gender === 'male' ? 'Man' : 'Woman';
+            const subject = gender === 'male' ? 'He' : 'She';
+            const possessive = gender === 'male' ? 'his' : 'her';
+
+            return `Make the ${actor} in the video speak with a clear ${accentName} accent while delivering the following lines. ${subject} is mid 60s and is talking about ${possessive} experience with life insurance. The voice should be direct, not too expressive, just matter of fact talking about ${possessive} experience.\n\n"${script}"${context ? `\n\nAdditional Context: ${context}` : ''}`
+        }
+    };
+};
 
 const BatchDetail = ({ batch, onBack, onClipComplete, userEmail }) => {
     const [clips, setClips] = useState([]);
