@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Download, RefreshCw, Trash2, Play, Plus, Loader2, FileArchive, X, Send, Pencil, Check } from 'lucide-react';
+import { ArrowLeft, Download, RefreshCw, Trash2, Play, Plus, Loader2, FileArchive, X, Send, Pencil, Check, Image, Upload } from 'lucide-react';
+import { uploadImage } from '../services/kieService';
 import { getBatchClips, saveGeneration } from '../services/supabase';
 import { generateAdVideo, pollTaskStatus, getDownloadUrl } from '../services/kieService';
 import JSZip from 'jszip';
@@ -34,6 +35,12 @@ const BatchDetail = ({ batch, onBack, onClipComplete, userEmail }) => {
     const [editingClipIdx, setEditingClipIdx] = useState(null);
     const [editedScript, setEditedScript] = useState('');
     const [regeneratingIdx, setRegeneratingIdx] = useState(null);
+
+    // Image change state
+    const [changingImageIdx, setChangingImageIdx] = useState(null);
+    const [newImagePreview, setNewImagePreview] = useState('');
+    const [newImageFile, setNewImageFile] = useState(null);
+    const imageInputRef = React.useRef(null);
 
     useEffect(() => {
         loadClips();
@@ -234,8 +241,117 @@ const BatchDetail = ({ batch, onBack, onClipComplete, userEmail }) => {
         }
     };
 
+    // Image change handlers
+    const handleStartImageChange = (idx) => {
+        setChangingImageIdx(idx);
+        setNewImagePreview('');
+        setNewImageFile(null);
+    };
+
+    const handleCancelImageChange = () => {
+        setChangingImageIdx(null);
+        setNewImagePreview('');
+        setNewImageFile(null);
+    };
+
+    const handleImageFileChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            if (file.size > 5 * 1024 * 1024) {
+                alert('Image is too large. Please use an image under 5MB.');
+                return;
+            }
+            setNewImageFile(file);
+            const reader = new FileReader();
+            reader.onloadend = () => setNewImagePreview(reader.result);
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleRegenerateWithNewImage = async (idx) => {
+        const clip = clips[idx];
+        if (!newImagePreview) return;
+
+        setChangingImageIdx(null);
+        setRegeneratingIdx(idx);
+
+        try {
+            // Upload the new image first
+            let uploadedImageUrl = newImagePreview;
+            if (newImagePreview.startsWith('data:')) {
+                console.log('📤 Uploading new reference image...');
+                uploadedImageUrl = await uploadImage(newImagePreview);
+                console.log('✅ New image uploaded:', uploadedImageUrl);
+            }
+
+            const finalPrompt = getPresetConfig(batch.accent || 'australian').basePrompt(
+                clip.script,
+                '',
+                batch.gender || 'male'
+            );
+
+            const response = await generateAdVideo(
+                {
+                    prompt: finalPrompt,
+                    imageUrl: uploadedImageUrl,
+                    model: 'veo3_fast',
+                    aspectRatio: batch.aspect_ratio || '9:16'
+                },
+                () => { }
+            );
+
+            if (!response.taskId) throw new Error('API failed to return a valid Task ID');
+
+            let isTaskDone = false;
+            while (!isTaskDone) {
+                const pollResponse = await pollTaskStatus(response.taskId);
+
+                if (pollResponse.status === 'completed' && pollResponse.videoUrl) {
+                    const finalResult = {
+                        videoUrl: pollResponse.videoUrl,
+                        taskId: response.taskId,
+                        timestamp: new Date().toISOString(),
+                        script: clip.script,
+                        imageUrl: uploadedImageUrl,
+                        presetName: `Clip ${idx + 1}`,
+                        aspectRatio: batch.aspect_ratio,
+                        gender: batch.gender
+                    };
+
+                    await saveGeneration(finalResult, userEmail, batch.id);
+                    if (onClipComplete) onClipComplete(finalResult);
+
+                    // Update the clip in local state with new image
+                    setClips(prev => prev.map((c, i) =>
+                        i === idx ? { ...finalResult, batch_id: batch.id } : c
+                    ));
+                    isTaskDone = true;
+                } else if (pollResponse.status === 'failed') {
+                    throw new Error(pollResponse.error || 'Production failed.');
+                }
+
+                if (!isTaskDone) await new Promise(r => setTimeout(r, 5000));
+            }
+        } catch (err) {
+            console.error('Error regenerating clip with new image:', err);
+            alert('Failed to regenerate clip: ' + err.message);
+        } finally {
+            setRegeneratingIdx(null);
+            setNewImagePreview('');
+            setNewImageFile(null);
+        }
+    };
+
     return (
         <div className="animate-fade-in">
+            {/* Hidden file input for image change */}
+            <input
+                type="file"
+                ref={imageInputRef}
+                style={{ display: 'none' }}
+                accept="image/*"
+                onChange={handleImageFileChange}
+            />
             {/* Header */}
             <div style={{
                 display: 'flex',
@@ -460,7 +576,7 @@ const BatchDetail = ({ batch, onBack, onClipComplete, userEmail }) => {
                                 )}
                             </div>
 
-                            {/* Clip Info / Edit Mode */}
+                            {/* Clip Info / Edit Mode / Image Change Mode */}
                             {editingClipIdx === idx ? (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                     <label className="label-caps">EDIT SCRIPT</label>
@@ -488,6 +604,75 @@ const BatchDetail = ({ batch, onBack, onClipComplete, userEmail }) => {
                                         </button>
                                         <button
                                             onClick={handleCancelEdit}
+                                            className="btn-primary"
+                                            style={{ padding: '10px', backgroundColor: 'var(--surface-color)', border: '1px solid var(--border-color)' }}
+                                        >
+                                            <X size={14} color="var(--text-color)" />
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : changingImageIdx === idx ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                    <label className="label-caps">CHANGE REFERENCE IMAGE</label>
+                                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0 }}>
+                                        Upload a new image to regenerate this clip with different scenery
+                                    </p>
+
+                                    {newImagePreview ? (
+                                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                            <img
+                                                src={newImagePreview}
+                                                alt="New reference"
+                                                style={{
+                                                    width: '80px',
+                                                    height: '80px',
+                                                    objectFit: 'cover',
+                                                    borderRadius: '8px',
+                                                    border: '2px solid var(--primary-color)'
+                                                }}
+                                            />
+                                            <div style={{ flex: 1 }}>
+                                                <p style={{ fontSize: '12px', fontWeight: '600', margin: '0 0 4px 0' }}>
+                                                    New image ready
+                                                </p>
+                                                <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0 }}>
+                                                    Click regenerate to apply
+                                                </p>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <button
+                                            onClick={() => imageInputRef.current?.click()}
+                                            className="card"
+                                            style={{
+                                                padding: '24px',
+                                                border: '2px dashed var(--border-color)',
+                                                backgroundColor: 'transparent',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                alignItems: 'center',
+                                                gap: '8px',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            <Upload size={24} color="var(--text-muted)" />
+                                            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                                                Click to upload new image
+                                            </span>
+                                        </button>
+                                    )}
+
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <button
+                                            onClick={() => handleRegenerateWithNewImage(idx)}
+                                            className="btn-primary"
+                                            style={{ flex: 1, padding: '10px', fontSize: '12px' }}
+                                            disabled={!newImagePreview}
+                                        >
+                                            <RefreshCw size={14} /> Regenerate with New Image
+                                        </button>
+                                        <button
+                                            onClick={handleCancelImageChange}
                                             className="btn-primary"
                                             style={{ padding: '10px', backgroundColor: 'var(--surface-color)', border: '1px solid var(--border-color)' }}
                                         >
@@ -531,6 +716,15 @@ const BatchDetail = ({ batch, onBack, onClipComplete, userEmail }) => {
                                             disabled={regeneratingIdx === idx}
                                         >
                                             <Pencil size={14} color="var(--text-color)" />
+                                        </button>
+                                        <button
+                                            onClick={() => handleStartImageChange(idx)}
+                                            className="btn-primary"
+                                            style={{ padding: '10px', backgroundColor: 'var(--surface-color)', border: '1px solid var(--border-color)' }}
+                                            title="Change reference image"
+                                            disabled={regeneratingIdx === idx}
+                                        >
+                                            <Image size={14} color="var(--text-color)" />
                                         </button>
                                     </div>
                                 </>
