@@ -475,3 +475,89 @@ export const getDownloadUrl = async (fileUrl) => {
     return fileUrl;
   }
 };
+
+/**
+ * MOCK Visual Ad Analysis
+ * Analyzes PURELY VISUAL elements - composition, colors, subjects, lighting, mood
+ * Does NOT analyze text/copy as that's handled separately
+ */
+export const analyzeAdImage = async (imageUrl) => {
+  // Simulate API delay
+  await new Promise(r => setTimeout(r, 1500));
+
+  // Visual-only analysis traits (randomized for demo variety)
+  const allTraits = [
+    {
+      category: "Composition",
+      title: "Rule of Thirds Alignment",
+      description: "Key visual elements are positioned along power points, creating natural eye flow.",
+      score: Math.floor(Math.random() * 15) + 85
+    },
+    {
+      category: "Composition",
+      title: "Strong Focal Point",
+      description: "A clear visual anchor draws immediate attention to the main subject.",
+      score: Math.floor(Math.random() * 15) + 80
+    },
+    {
+      category: "Color",
+      title: "High Contrast Palette",
+      description: "Bold color separation creates visual impact and improves scroll-stopping power.",
+      score: Math.floor(Math.random() * 15) + 82
+    },
+    {
+      category: "Color",
+      title: "Warm Tones Dominant",
+      description: "Warm colors evoke trust, comfort, and positive emotional response.",
+      score: Math.floor(Math.random() * 15) + 78
+    },
+    {
+      category: "Subject",
+      title: "Human Presence",
+      description: "Featuring a person increases relatability and emotional connection.",
+      score: Math.floor(Math.random() * 15) + 88
+    },
+    {
+      category: "Subject",
+      title: "Product Visibility",
+      description: "The product/service is clearly visible and contextually placed.",
+      score: Math.floor(Math.random() * 15) + 75
+    },
+    {
+      category: "Lighting",
+      title: "Professional Lighting",
+      description: "Well-balanced lighting creates depth and emphasizes key elements.",
+      score: Math.floor(Math.random() * 15) + 80
+    },
+    {
+      category: "Mood",
+      title: "Aspirational Aesthetic",
+      description: "The visual style suggests a desirable lifestyle or outcome.",
+      score: Math.floor(Math.random() * 15) + 83
+    },
+    {
+      category: "Mood",
+      title: "Authenticity Markers",
+      description: "Natural, unpolished elements create trust through perceived authenticity.",
+      score: Math.floor(Math.random() * 15) + 79
+    }
+  ];
+
+  // Pick 4 random traits for variety
+  const shuffled = allTraits.sort(() => 0.5 - Math.random());
+  const selectedTraits = shuffled.slice(0, 4);
+
+  // Return mocked visual analysis data
+  return {
+    success: true,
+    traits: selectedTraits,
+    visualSummary: "Strong visual hierarchy with effective use of contrast and focal points.",
+    colorPalette: ["#2C3E50", "#E74C3C", "#ECF0F1", "#F39C12"],
+    suggestedVariations: [
+      "Try different lighting angles",
+      "Experiment with cooler color tones",
+      "Add environmental context",
+      "Test with different subject positioning"
+    ]
+  };
+};

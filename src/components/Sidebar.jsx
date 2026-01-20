@@ -1,10 +1,10 @@
-import React from 'react';
-import { LayoutDashboard, PlusCircle, History, LogOut, User, Sparkles, Sun, Moon, Building2 } from 'lucide-react';
+import { LayoutDashboard, PlusCircle, History, LogOut, User, Sparkles, Sun, Moon, Building2, Wand2 } from 'lucide-react';
 
 const Sidebar = ({ activeTab, setActiveTab, user, onLogout, theme, toggleTheme }) => {
     const menuItems = [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
         { id: 'generator', label: 'Create Ad', icon: PlusCircle },
+        { id: 'remixer', label: 'Ad Remixer', icon: Wand2 },
         { id: 'history', label: 'History', icon: History },
         { id: 'workspaces', label: 'Workspaces', icon: Building2 },
     ];

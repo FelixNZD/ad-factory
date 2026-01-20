@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import Generator from './components/Generator';
+import AdRemixer from './components/AdRemixer';
 import History from './components/History';
 import Workspaces from './components/Workspaces';
 import Login from './components/Login';
@@ -161,6 +162,9 @@ function App() {
                             onClearPrefill={() => setPrefillData(null)}
                             user={user}
                         />
+                    )}
+                    {activeTab === 'remixer' && (
+                        <AdRemixer />
                     )}
                     {activeTab === 'history' && (
                         <History
