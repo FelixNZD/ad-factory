@@ -13,8 +13,7 @@ const ASPECT_RATIOS = [
 
 const IMAGE_MODELS = [
     { id: 'nano-banana-pro', label: 'Nano Banana Pro', description: 'Fast & High Quality' },
-    { id: 'flux-pro', label: 'Flux Pro', description: 'Photo-realistic & Sharp' },
-    { id: 'stable-diffusion-xl', label: 'SDXL', description: 'Open & Versatile' },
+    // Only nano-banana-pro is currently confirmed for reference image generation via this service call
 ];
 
 const AdRemixer = () => {
@@ -159,8 +158,9 @@ const AdRemixer = () => {
                         const status = await pollImageTaskStatus(response.taskId);
                         if (status.status === 'success' && status.imageUrls?.length > 0) {
                             completed++;
+                            const imageUrl = status.imageUrls[0];
                             setGenerationProgress(prev => ({ ...prev, current: completed, currentImage: `Completed ${vIdx + 1} for ${sourceName}` }));
-                            return { url: status.imageUrls[0], model };
+                            return { url: imageUrl, model };
                         } else if (status.status === 'fail') {
                             throw new Error(status.error || 'Task failed');
                         }
@@ -212,6 +212,85 @@ const AdRemixer = () => {
         }
     };
 
+    const downloadSingleImage = async (url, fileName) => {
+        if (!url) {
+            alert('No image URL available for download.');
+            return;
+        }
+        try {
+            // Using a more robust fetch with no cache to avoid potential CORS wrapper issues
+            const response = await fetch(url, { cache: 'no-cache' });
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            const blob = await response.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+        } catch (err) {
+            console.error('Download error:', err);
+            // If fetch fails (CORS), at least try to open in new tab
+            const win = window.open(url, '_blank');
+            if (!win) alert('Please allow popups to download this image.');
+        }
+    };
+
+    const downloadAllAsZip = async () => {
+        if (generatedImages.length === 0) return;
+
+        const zip = new JSZip();
+        let hasContent = false;
+        let errors = 0;
+
+        for (const result of generatedImages) {
+            const safeSourceName = result.sourceName.replace(/[^a-z0-9]/gi, '-');
+            const folder = zip.folder(safeSourceName);
+
+            const fetchPromises = result.variations.map(async (v, i) => {
+                if (!v.url) return;
+                try {
+                    const response = await fetch(v.url, { cache: 'no-cache' });
+                    if (!response.ok) throw new Error('Fetch failed');
+                    const blob = await response.blob();
+                    folder.file(`variation_${i + 1}_${v.model}.png`, blob);
+                    hasContent = true;
+                } catch (e) {
+                    errors++;
+                    console.error(`Error adding to ZIP (${result.sourceName}):`, e);
+                }
+            });
+
+            await Promise.all(fetchPromises);
+        }
+
+        if (!hasContent) {
+            alert('Generation succeeded but images are not directly downloadable due to browser security (CORS). Please download them individually or open them in new tabs.');
+            return;
+        }
+
+        try {
+            const content = await zip.generateAsync({ type: 'blob' });
+            const url = URL.createObjectURL(content);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `ad-variations-${Date.now()}.zip`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+            if (errors > 0) {
+                alert(`Downloaded ZIP with ${errors} images missing due to external network errors.`);
+            }
+        } catch (err) {
+            console.error('ZIP generation error:', err);
+            alert('Failed to generate ZIP file.');
+        }
+    };
+
     const resetProcess = () => {
         setStep('upload');
         setUploadedImages([]);
@@ -219,33 +298,6 @@ const AdRemixer = () => {
         setError('');
         setOfferContext('');
         setCustomPrompt('');
-    };
-
-    const downloadAllAsZip = async () => {
-        const zip = new JSZip();
-
-        for (const result of generatedImages) {
-            const folderName = result.sourceName.replace(/\.[^/.]+$/, '');
-            const folder = zip.folder(folderName);
-
-            for (let i = 0; i < result.variations.length; i++) {
-                try {
-                    const response = await fetch(result.variations[i].url);
-                    const blob = await response.blob();
-                    folder.file(`variation_${i + 1}_${result.variations[i].model}.png`, blob);
-                } catch (e) {
-                    console.error('Download error:', e);
-                }
-            }
-        }
-
-        const content = await zip.generateAsync({ type: 'blob' });
-        const url = URL.createObjectURL(content);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `ad-variations-${Date.now()}.zip`;
-        a.click();
-        URL.revokeObjectURL(url);
     };
 
     return (
@@ -704,11 +756,8 @@ const AdRemixer = () => {
                                             </div>
                                         </div>
                                         <div style={{ padding: '12px' }}>
-                                            <a
-                                                href={v.url}
-                                                download={`${result.sourceName.replace(/\.[^/.]+$/, '')}_v${vIdx + 1}.png`}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
+                                            <button
+                                                onClick={() => downloadSingleImage(v.url, `${result.sourceName.replace(/\.[^/.]+$/, '')}_v${vIdx + 1}.png`)}
                                                 className="btn-primary"
                                                 style={{
                                                     display: 'flex',
@@ -718,10 +767,10 @@ const AdRemixer = () => {
                                                     width: '100%',
                                                     padding: '8px',
                                                     fontSize: '12px',
-                                                    textDecoration: 'none'
+                                                    border: 'none'
                                                 }}>
                                                 <Download size={14} /> Download
-                                            </a>
+                                            </button>
                                         </div>
                                     </div>
                                 ))}
