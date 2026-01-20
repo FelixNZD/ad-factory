@@ -13,7 +13,8 @@ const ASPECT_RATIOS = [
 
 const IMAGE_MODELS = [
     { id: 'nano-banana-pro', label: 'Nano Banana Pro', description: 'Fast & High Quality' },
-    // Add more models here as they become available
+    { id: 'flux-pro', label: 'Flux Pro', description: 'Photo-realistic & Sharp' },
+    { id: 'stable-diffusion-xl', label: 'SDXL', description: 'Open & Versatile' },
 ];
 
 const AdRemixer = () => {
@@ -26,7 +27,7 @@ const AdRemixer = () => {
     // Configuration
     const [variationsPerImage, setVariationsPerImage] = useState(3);
     const [aspectRatio, setAspectRatio] = useState('1:1');
-    const [selectedModel, setSelectedModel] = useState('nano-banana-pro');
+    const [selectedModels, setSelectedModels] = useState(['nano-banana-pro']);
     const [offerContext, setOfferContext] = useState('');
     const [customPrompt, setCustomPrompt] = useState('');
     const [showAdvanced, setShowAdvanced] = useState(false);
@@ -126,78 +127,83 @@ const AdRemixer = () => {
         let completed = 0;
 
         try {
-            for (const sourceImage of uploadedImages) {
-                setGenerationProgress({ current: completed, total, currentImage: sourceImage.name });
-
-                // Upload the source image first
-                let uploadedUrl = sourceImage.preview;
-                if (sourceImage.preview.startsWith('data:')) {
-                    uploadedUrl = await uploadImage(sourceImage.preview);
+            // 1. Upload all images in parallel first
+            const uploadPromises = uploadedImages.map(async (img) => {
+                if (img.preview.startsWith('data:')) {
+                    const url = await uploadImage(img.preview);
+                    return { ...img, url };
                 }
+                return { ...img, url: img.preview };
+            });
 
-                const variations = [];
+            setGenerationProgress({ current: 0, total, currentImage: 'Uploading source images...' });
+            const imagesWithUrls = await Promise.all(uploadPromises);
 
-                // Generate variations for this image
-                for (let v = 0; v < variationsPerImage; v++) {
-                    setGenerationProgress({ current: completed, total, currentImage: `${sourceImage.name} (${v + 1}/${variationsPerImage})` });
+            // 2. Define a function to handle a single variation generation (Start + Poll)
+            const generateAndPollVariation = async (sourceUrl, sourceName, model, vIdx) => {
+                const prompt = `Create a unique visual variation of this reference ad image. Maintain the core visual concept but reimagine with fresh composition, lighting, or perspective. ${offerContext.trim() ? `Context: ${offerContext.trim()}.` : ''} ${customPrompt.trim() ? `Direction: ${customPrompt.trim()}` : ''}`;
 
-                    // Build the prompt
-                    let prompt = `Create a unique visual variation of this reference ad image. Maintain the core visual concept but reimagine with fresh composition, lighting, or perspective.`;
+                try {
+                    const response = await generateReferenceImage({
+                        prompt,
+                        referenceImages: [sourceUrl],
+                        aspectRatio,
+                        model
+                    });
 
-                    if (offerContext.trim()) {
-                        prompt += ` The offer/product context: ${offerContext.trim()}.`;
-                    }
+                    if (!response.taskId) throw new Error('No taskId returned');
 
-                    if (customPrompt.trim()) {
-                        prompt += ` Additional direction: ${customPrompt.trim()}`;
-                    }
-
-                    try {
-                        const response = await generateReferenceImage({
-                            prompt,
-                            referenceImages: [uploadedUrl],
-                            aspectRatio: aspectRatio,
-                            model: selectedModel
-                        });
-
-                        if (response.taskId) {
-                            // Poll for completion
-                            let isComplete = false;
-                            let attempts = 0;
-                            while (!isComplete && attempts < 60) { // Max 2 min per image
-                                const status = await pollImageTaskStatus(response.taskId);
-                                if (status.status === 'success' && status.imageUrls?.length > 0) {
-                                    variations.push(status.imageUrls[0]);
-                                    isComplete = true;
-                                } else if (status.status === 'fail') {
-                                    console.error('Variation failed:', status.error);
-                                    variations.push(null); // Mark as failed
-                                    isComplete = true;
-                                }
-                                if (!isComplete) {
-                                    await new Promise(r => setTimeout(r, 2000));
-                                    attempts++;
-                                }
-                            }
-                            if (!isComplete) variations.push(null); // Timeout
+                    // Polling
+                    let attempts = 0;
+                    while (attempts < 60) {
+                        const status = await pollImageTaskStatus(response.taskId);
+                        if (status.status === 'success' && status.imageUrls?.length > 0) {
+                            completed++;
+                            setGenerationProgress(prev => ({ ...prev, current: completed, currentImage: `Completed ${vIdx + 1} for ${sourceName}` }));
+                            return { url: status.imageUrls[0], model };
+                        } else if (status.status === 'fail') {
+                            throw new Error(status.error || 'Task failed');
                         }
-                    } catch (err) {
-                        console.error('Generation error:', err);
-                        variations.push(null);
+                        await new Promise(r => setTimeout(r, 3000));
+                        attempts++;
                     }
-
-                    completed++;
-                    setGenerationProgress({ current: completed, total, currentImage: sourceImage.name });
+                    throw new Error('Polling timeout');
+                } catch (err) {
+                    console.error(`Error generating variation for ${sourceName}:`, err);
+                    completed++; // Still increment to keep progress moving
+                    setGenerationProgress(prev => ({ ...prev, current: completed }));
+                    return null;
                 }
+            };
 
-                // Add this source's results
-                setGeneratedImages(prev => [...prev, {
-                    sourceImage: uploadedUrl,
-                    sourceName: sourceImage.name,
+            // 3. Create all generation tasks
+            const allTasks = [];
+            imagesWithUrls.forEach(img => {
+                const imgVariations = [];
+                for (let v = 0; v < variationsPerImage; v++) {
+                    const model = selectedModels[v % selectedModels.length];
+                    imgVariations.push(generateAndPollVariation(img.url, img.name, model, v));
+                }
+                allTasks.push({
+                    sourceName: img.name,
+                    sourceImage: img.url,
+                    promises: imgVariations
+                });
+            });
+
+            // 4. Run everything in parallel
+            setGenerationProgress({ current: 0, total, currentImage: 'Starting batch generation...' });
+
+            const results = await Promise.all(allTasks.map(async (task) => {
+                const variations = await Promise.all(task.promises);
+                return {
+                    sourceName: task.sourceName,
+                    sourceImage: task.sourceImage,
                     variations: variations.filter(v => v !== null)
-                }]);
-            }
+                };
+            }));
 
+            setGeneratedImages(results);
             setStep('results');
         } catch (err) {
             console.error('Batch generation error:', err);
@@ -224,9 +230,9 @@ const AdRemixer = () => {
 
             for (let i = 0; i < result.variations.length; i++) {
                 try {
-                    const response = await fetch(result.variations[i]);
+                    const response = await fetch(result.variations[i].url);
                     const blob = await response.blob();
-                    folder.file(`variation_${i + 1}.png`, blob);
+                    folder.file(`variation_${i + 1}_${result.variations[i].model}.png`, blob);
                 } catch (e) {
                     console.error('Download error:', e);
                 }
@@ -246,10 +252,10 @@ const AdRemixer = () => {
         <div className="animate-fade-in container-narrow">
             <header className="section-header">
                 <div className="section-title">
-                    <Wand2 className="text-gradient-red" size={28} />
-                    <h1>Ad Remixer</h1>
+                    <Wand2 className="text-secondary" style={{ color: 'var(--primary-color)' }} size={28} />
+                    <h1 style={{ color: 'var(--text-color)' }}>Ad Remixer</h1>
                 </div>
-                <p className="section-subtitle">Bulk analyze visual ads & generate infinite variations. Pure visuals, no text.</p>
+                <p className="section-subtitle" style={{ color: 'var(--text-muted)' }}>Bulk analyze visual ads & generate infinite variations. Pure visuals, no text.</p>
             </header>
 
             {error && (
@@ -420,7 +426,7 @@ const AdRemixer = () => {
                                 </span>
                             </div>
                             <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '8px' }}>
-                                Total: {uploadedImages.length} × {variationsPerImage} = <strong style={{ color: 'var(--primary-color)' }}>{totalGenerations} ads</strong>
+                                Total: {uploadedImages.length} × {variationsPerImage} = <strong style={{ color: 'var(--accent-text)' }}>{totalGenerations} ads</strong>
                             </p>
                         </div>
 
@@ -465,44 +471,60 @@ const AdRemixer = () => {
                             </div>
                         </div>
 
-                        {/* Model Selection */}
                         <div style={{ marginBottom: '24px' }}>
-                            <label className="label-caps">IMAGE MODEL</label>
+                            <label className="label-caps">IMAGE MODELS (Select one or more for round-robin)</label>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                                {IMAGE_MODELS.map(model => (
-                                    <button
-                                        key={model.id}
-                                        onClick={() => setSelectedModel(model.id)}
-                                        style={{
-                                            padding: '12px 16px',
-                                            borderRadius: '8px',
-                                            border: selectedModel === model.id ? '2px solid var(--primary-color)' : '1px solid var(--border-color)',
-                                            backgroundColor: selectedModel === model.id ? 'rgba(255, 0, 0, 0.1)' : 'var(--surface-color)',
-                                            color: selectedModel === model.id ? 'var(--text-color)' : 'var(--text-muted)',
-                                            cursor: 'pointer',
-                                            textAlign: 'left',
-                                            flex: '1 1 200px',
-                                            transition: 'all 0.2s ease',
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            gap: '4px'
-                                        }}
-                                    >
-                                        <div style={{
-                                            fontWeight: '700',
-                                            fontSize: '13px',
-                                            color: selectedModel === model.id ? 'var(--text-color)' : 'var(--text-color)'
-                                        }}>
-                                            {model.label}
-                                        </div>
-                                        <div style={{
-                                            fontSize: '11px',
-                                            color: selectedModel === model.id ? 'rgba(255,255,255,0.7)' : 'var(--text-muted)'
-                                        }}>
-                                            {model.description}
-                                        </div>
-                                    </button>
-                                ))}
+                                {IMAGE_MODELS.map(model => {
+                                    const isSelected = selectedModels.includes(model.id);
+                                    return (
+                                        <button
+                                            key={model.id}
+                                            onClick={() => {
+                                                if (isSelected) {
+                                                    if (selectedModels.length > 1) {
+                                                        setSelectedModels(prev => prev.filter(id => id !== model.id));
+                                                    }
+                                                } else {
+                                                    setSelectedModels(prev => [...prev, model.id]);
+                                                }
+                                            }}
+                                            style={{
+                                                padding: '12px 16px',
+                                                borderRadius: '8px',
+                                                border: isSelected ? '2px solid var(--primary-color)' : '1px solid var(--border-color)',
+                                                backgroundColor: isSelected ? 'rgba(255, 0, 0, 0.15)' : 'var(--surface-color)',
+                                                color: 'var(--text-color)',
+                                                cursor: 'pointer',
+                                                textAlign: 'left',
+                                                flex: '1 1 200px',
+                                                transition: 'all 0.2s ease',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                gap: '4px',
+                                                boxShadow: isSelected ? '0 0 10px rgba(255, 0, 0, 0.1)' : 'none'
+                                            }}
+                                        >
+                                            <div style={{
+                                                fontWeight: '800',
+                                                fontSize: '13px',
+                                                color: isSelected ? 'var(--accent-text)' : 'var(--text-color)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between'
+                                            }}>
+                                                {model.label}
+                                                {isSelected && <span style={{ fontSize: '10px', backgroundColor: 'var(--accent-text)', color: 'white', padding: '1px 6px', borderRadius: '4px' }}>Selected</span>}
+                                            </div>
+                                            <div style={{
+                                                fontSize: '11px',
+                                                color: isSelected ? 'var(--text-color)' : 'var(--text-muted)',
+                                                opacity: 0.8
+                                            }}>
+                                                {model.description}
+                                            </div>
+                                        </button>
+                                    );
+                                })}
                             </div>
                         </div>
 
@@ -663,14 +685,27 @@ const AdRemixer = () => {
                             </div>
 
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '16px' }}>
-                                {result.variations.map((varUrl, vIdx) => (
+                                {result.variations.map((v, vIdx) => (
                                     <div key={vIdx} style={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
-                                        <div style={{ aspectRatio: aspectRatio.replace(':', '/'), overflow: 'hidden' }}>
-                                            <img src={varUrl} alt={`Variation ${vIdx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        <div style={{ aspectRatio: aspectRatio.replace(':', '/'), overflow: 'hidden', position: 'relative' }}>
+                                            <img src={v.url} alt={`Variation ${vIdx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                            <div style={{
+                                                position: 'absolute',
+                                                top: '8px',
+                                                right: '8px',
+                                                backgroundColor: 'rgba(0,0,0,0.6)',
+                                                color: 'white',
+                                                fontSize: '10px',
+                                                padding: '2px 8px',
+                                                borderRadius: '4px',
+                                                backdropFilter: 'blur(4px)'
+                                            }}>
+                                                {v.model}
+                                            </div>
                                         </div>
                                         <div style={{ padding: '12px' }}>
                                             <a
-                                                href={varUrl}
+                                                href={v.url}
                                                 download={`${result.sourceName.replace(/\.[^/.]+$/, '')}_v${vIdx + 1}.png`}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
@@ -684,8 +719,7 @@ const AdRemixer = () => {
                                                     padding: '8px',
                                                     fontSize: '12px',
                                                     textDecoration: 'none'
-                                                }}
-                                            >
+                                                }}>
                                                 <Download size={14} /> Download
                                             </a>
                                         </div>

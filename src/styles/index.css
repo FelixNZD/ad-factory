@@ -4,6 +4,7 @@
     --surface-hover: #1a1a1a;
     --primary-color: #ff0000;
     --primary-hover: #cc0000;
+    --accent-text: #ff4444;
     --text-color: #ffffff;
     --text-muted: #888888;
     --border-color: #222222;
@@ -24,6 +25,7 @@
     --surface-hover: #f1f3f5;
     --primary-color: #ff0000;
     --primary-hover: #cc0000;
+    --accent-text: #d32f2f;
     --text-color: #1a1a1a;
     --text-muted: #64748b;
     --border-color: #e2e8f0;

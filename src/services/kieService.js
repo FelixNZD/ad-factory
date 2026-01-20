@@ -344,17 +344,18 @@ export const generateReferenceImage = async (options, onProgress) => {
     aspectRatio = '1:1',
     resolution = '1K',
     outputFormat = 'png',
-    referenceImages = []
+    referenceImages = [],
+    model = 'nano-banana-pro'
   } = options;
 
   if (!prompt || prompt.trim().length === 0) {
     throw new Error('Prompt is required for image generation');
   }
 
-  if (onProgress) onProgress('Submitting to Nano Banana Pro...', 10);
+  if (onProgress) onProgress(`Submitting to ${model}...`, 10);
 
   const requestBody = {
-    model: 'nano-banana-pro',
+    model: model,
     input: {
       prompt: prompt.trim(),
       image_input: referenceImages,
