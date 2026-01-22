@@ -543,13 +543,13 @@ const BatchDetail = ({ batch, onBack, onClipComplete, userEmail }) => {
                                         }}
                                     >
                                         <img
-                                            src={clip.imageUrl || batch.image_url}
+                                            src={clip.imageUrl || clip.image_url || batch.image_url || batch.imageUrl}
                                             alt="Thumbnail"
                                             style={{
                                                 width: '100%',
                                                 height: '100%',
                                                 objectFit: 'cover',
-                                                opacity: 0.6
+                                                opacity: 0.8
                                             }}
                                         />
                                         <div style={{

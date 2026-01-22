@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Building2, Loader2, Clock, Download, Play } from 'lucide-react';
-import { WORKSPACES, getWorkspaceBatches, getBatchClips, getWorkspaceGenerations } from '../services/supabase';
+import { WORKSPACES, getBatchSummaries, getWorkspaceGenerations } from '../services/supabase';
 import { getDownloadUrl } from '../services/kieService';
 import BatchCard from './BatchCard';
 import BatchDetail from './BatchDetail';
@@ -8,7 +8,6 @@ import BatchDetail from './BatchDetail';
 const Workspaces = ({ user, onClipComplete }) => {
     const [selectedWorkspace, setSelectedWorkspace] = useState(null);
     const [batches, setBatches] = useState([]);
-    const [batchClipCounts, setBatchClipCounts] = useState({});
     const [legacyClips, setLegacyClips] = useState([]);
     const [loading, setLoading] = useState(false);
     const [selectedBatch, setSelectedBatch] = useState(null);
@@ -27,17 +26,9 @@ const Workspaces = ({ user, onClipComplete }) => {
     const loadWorkspaceData = async (workspaceId) => {
         setLoading(true);
 
-        // Load batches
-        const batchData = await getWorkspaceBatches(workspaceId);
-        setBatches(batchData);
-
-        // Load clip counts for each batch
-        const counts = {};
-        for (const batch of batchData) {
-            const clips = await getBatchClips(batch.id);
-            counts[batch.id] = clips.length;
-        }
-        setBatchClipCounts(counts);
+        // 1. Get optimized batch summaries for this workspace
+        const batchSummaries = await getBatchSummaries(workspaceId);
+        setBatches(batchSummaries);
 
         // Load legacy clips (without batch_id) from workspace members
         const allGenerations = await getWorkspaceGenerations(workspaceId);
@@ -156,7 +147,8 @@ const Workspaces = ({ user, onClipComplete }) => {
                                         <BatchCard
                                             key={batch.id}
                                             batch={batch}
-                                            clipCount={batchClipCounts[batch.id] || 0}
+                                            clipCount={batch.clipCount || 0}
+                                            thumbnails={batch.thumbnails || []}
                                             onClick={() => setSelectedBatch(batch)}
                                             showCreator={true}
                                             style={{ animationDelay: `${idx * 0.05}s` }}

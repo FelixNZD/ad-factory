@@ -22,10 +22,19 @@ const PRODUCTION_MESSAGES = [
     "Wrapping up UGC performance..."
 ];
 
-const getPresetConfig = (accent) => {
+const getAgeDescription = (age) => {
+    if (age < 35) return `in ${age === 30 ? 'their' : 'their'} early ${Math.floor(age / 10) * 10}s`;
+    if (age % 10 <= 2) return `in their early ${Math.floor(age / 10) * 10}s`;
+    if (age % 10 <= 6) return `mid ${Math.floor(age / 10) * 10}s`;
+    return `in their late ${Math.floor(age / 10) * 10}s`;
+};
+
+const getPresetConfig = (accent, age = 65) => {
     let accentName = 'American';
     if (accent === 'australian') accentName = 'Australian';
     if (accent === 'new zealand') accentName = 'New Zealand';
+
+    const ageDesc = getAgeDescription(age);
 
     return {
         name: `${accentName} Life Insurance`,
@@ -35,7 +44,7 @@ const getPresetConfig = (accent) => {
             const subject = gender === 'male' ? 'He' : 'She';
             const possessive = gender === 'male' ? 'his' : 'her';
 
-            return `Make the ${actor} in the video speak with a clear ${accentName} accent while delivering the following lines. ${subject} is mid 60s and is talking about ${possessive} experience with life insurance. The voice should be direct, not too expressive, just matter of fact talking about ${possessive} experience.\n\n"${script}"${context ? `\n\nAdditional Context: ${context}` : ''}`
+            return `Make the ${actor} in the video speak with a clear ${accentName} accent while delivering the following lines. ${subject} is ${ageDesc} and is talking about ${possessive} experience with life insurance. The voice should be direct, not too expressive, just matter of fact talking about ${possessive} experience.\n\n"${script}"${context ? `\n\nAdditional Context: ${context}` : ''}`
         }
     };
 };
@@ -48,6 +57,7 @@ const Generator = ({ onComplete, onBatchComplete, setActiveTab, prefill, onClear
     const [imageFile, setImageFile] = useState(null);
     const [imagePreview, setImagePreview] = useState('');
     const [aspectRatio, setAspectRatio] = useState('9:16');
+    const [actorAge, setActorAge] = useState(65);
     const [status, setStatus] = useState('idle'); // idle, generating, completed, error
     const [currentStep, setCurrentStep] = useState('');
     const [result, setResult] = useState(null);
@@ -286,7 +296,7 @@ const Generator = ({ onComplete, onBatchComplete, setActiveTab, prefill, onClear
             // Reset task state for regeneration
             updateTask({ status: 'submitting', progress: 5, error: null, result: null });
 
-            const finalPrompt = getPresetConfig(accent).basePrompt(task.script, currentContext, currentGender);
+            const finalPrompt = getPresetConfig(accent, actorAge).basePrompt(task.script, currentContext, currentGender);
             const response = await generateAdVideo(
                 { prompt: finalPrompt, imageUrl: currentImagePreview, model: 'veo3_fast', aspectRatio: currentAspectRatio },
                 (step, prog) => updateTask({ progress: prog })
@@ -1137,8 +1147,44 @@ const Generator = ({ onComplete, onBatchComplete, setActiveTab, prefill, onClear
                                 </div>
 
                                 <div style={{ backgroundColor: 'rgba(255, 0, 0, 0.05)', borderLeft: '3px solid var(--primary-color)', padding: '16px', borderRadius: '8px', marginBottom: '24px' }}>
-                                    <div style={{ fontWeight: '700', fontSize: '14px' }}>{getPresetConfig(accent).name}</div>
+                                    <div style={{ fontWeight: '700', fontSize: '14px' }}>{getPresetConfig(accent, actorAge).name}</div>
                                     <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>VEO 3.1 PRO ENGINE ACTIVE</div>
+                                </div>
+
+                                <div style={{ marginBottom: '24px' }}>
+                                    <label className="label-caps">ACTOR AGE</label>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '8px' }}>
+                                        <input
+                                            type="range"
+                                            min="30"
+                                            max="90"
+                                            value={actorAge}
+                                            onChange={(e) => setActorAge(parseInt(e.target.value))}
+                                            style={{
+                                                flex: 1,
+                                                height: '6px',
+                                                borderRadius: '3px',
+                                                background: `linear-gradient(to right, var(--primary-color) ${((actorAge - 30) / 60) * 100}%, var(--border-color) ${((actorAge - 30) / 60) * 100}%)`,
+                                                appearance: 'none',
+                                                cursor: 'pointer'
+                                            }}
+                                        />
+                                        <div style={{
+                                            minWidth: '80px',
+                                            padding: '8px 12px',
+                                            backgroundColor: 'var(--surface-hover)',
+                                            borderRadius: '8px',
+                                            textAlign: 'center',
+                                            fontWeight: '700',
+                                            fontSize: '14px',
+                                            color: 'var(--primary-color)'
+                                        }}>
+                                            {actorAge} years
+                                        </div>
+                                    </div>
+                                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '8px' }}>
+                                        Actor will be described as "{getAgeDescription(actorAge)}" in the prompt
+                                    </div>
                                 </div>
 
                                 <div style={{ marginBottom: '24px' }}>

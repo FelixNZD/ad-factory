@@ -1,7 +1,7 @@
 import React from 'react';
 import { FolderOpen, Clock, Film, User } from 'lucide-react';
 
-const BatchCard = ({ batch, clipCount, onClick, showCreator = false }) => {
+const BatchCard = ({ batch, clipCount, thumbnails = [], onClick, showCreator = false }) => {
     return (
         <div
             onClick={onClick}
@@ -10,28 +10,56 @@ const BatchCard = ({ batch, clipCount, onClick, showCreator = false }) => {
                 cursor: 'pointer',
                 transition: 'all 0.2s ease',
                 display: 'flex',
-                gap: '16px',
-                alignItems: 'center'
+                gap: '20px',
+                alignItems: 'center',
+                padding: '20px'
             }}
         >
-            {/* Thumbnail */}
+            {/* Thumbnails Stack/Grid */}
             <div style={{
-                width: '80px',
+                width: '120px',
                 height: '80px',
                 borderRadius: '12px',
                 overflow: 'hidden',
                 flexShrink: 0,
                 backgroundColor: 'var(--video-bg)',
-                border: '1px solid var(--border-color)'
+                border: '1px solid var(--border-color)',
+                position: 'relative',
+                display: 'flex',
+                gap: '2px',
+                padding: '2px'
             }}>
-                {batch.image_url ? (
+                {thumbnails.length > 0 ? (
+                    <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: thumbnails.length === 1 ? '1fr' : '1fr 1fr',
+                        width: '100%',
+                        height: '100%',
+                        gap: '2px'
+                    }}>
+                        {thumbnails.slice(0, 4).map((url, i) => (
+                            <img
+                                key={i}
+                                src={url}
+                                alt=""
+                                style={{
+                                    width: '100%',
+                                    height: '100%',
+                                    objectFit: 'cover',
+                                    borderRadius: '4px'
+                                }}
+                            />
+                        ))}
+                    </div>
+                ) : (batch.image_url || batch.imageUrl) ? (
                     <img
-                        src={batch.image_url}
+                        src={batch.image_url || batch.imageUrl}
                         alt={batch.name}
                         style={{
                             width: '100%',
                             height: '100%',
-                            objectFit: 'cover'
+                            objectFit: 'cover',
+                            borderRadius: '8px'
                         }}
                     />
                 ) : (
@@ -51,9 +79,9 @@ const BatchCard = ({ batch, clipCount, onClick, showCreator = false }) => {
             {/* Info */}
             <div style={{ flex: 1, minWidth: 0 }}>
                 <h3 style={{
-                    fontSize: '16px',
-                    fontWeight: '700',
-                    marginBottom: '6px',
+                    fontSize: '18px',
+                    fontWeight: '800',
+                    marginBottom: '8px',
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis'
@@ -64,15 +92,15 @@ const BatchCard = ({ batch, clipCount, onClick, showCreator = false }) => {
                 <div style={{
                     display: 'flex',
                     gap: '16px',
-                    fontSize: '12px',
+                    fontSize: '13px',
                     color: 'var(--text-muted)'
                 }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <Film size={12} />
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Film size={14} />
                         {clipCount} {clipCount === 1 ? 'clip' : 'clips'}
                     </span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <Clock size={12} />
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Clock size={14} />
                         {new Date(batch.created_at).toLocaleDateString()}
                     </span>
                 </div>
@@ -84,7 +112,7 @@ const BatchCard = ({ batch, clipCount, onClick, showCreator = false }) => {
                         gap: '4px',
                         fontSize: '11px',
                         color: 'var(--text-muted)',
-                        marginTop: '6px'
+                        marginTop: '8px'
                     }}>
                         <User size={10} />
                         {batch.created_by.split('@')[0]}
@@ -95,8 +123,9 @@ const BatchCard = ({ batch, clipCount, onClick, showCreator = false }) => {
             {/* Arrow indicator */}
             <div style={{
                 color: 'var(--text-muted)',
-                fontSize: '18px',
-                fontWeight: '300'
+                fontSize: '24px',
+                fontWeight: '300',
+                paddingRight: '10px'
             }}>
                 →
             </div>

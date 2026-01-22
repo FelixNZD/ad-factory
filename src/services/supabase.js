@@ -217,6 +217,58 @@ export const deleteBatch = async (batchId) => {
     }
 };
 
+/**
+ * Optimized function to fetch batches along with their clip counts and thumbnails
+ * in only TWO database queries total (regardless of how many batches there are).
+ */
+export const getBatchSummaries = async (workspaceId = null) => {
+    if (!supabase) return [];
+
+    try {
+        // 1. Get all batches
+        let query = supabase
+            .from('batches')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (workspaceId) {
+            query = query.eq('workspace_id', workspaceId);
+        }
+
+        const { data: batches, error: batchError } = await query;
+        if (batchError) throw batchError;
+        if (!batches || batches.length === 0) return [];
+
+        // 2. Get all clips for these batches in ONE single query
+        const batchIds = batches.map(b => b.id);
+        const { data: allClips, error: clipsError } = await supabase
+            .from('generations')
+            .select('batch_id, imageUrl, image_url')
+            .in('batch_id', batchIds);
+
+        if (clipsError) {
+            console.error('Error fetching clip summaries:', clipsError);
+            return batches.map(transformBatch);
+        }
+
+        // 3. Map clips back to their respective batches
+        return batches.map(batch => {
+            const batchClips = allClips.filter(c => c.batch_id === batch.id);
+            return {
+                ...transformBatch(batch),
+                clipCount: batchClips.length,
+                thumbnails: batchClips
+                    .slice(0, 4)
+                    .map(c => c.imageUrl || c.image_url)
+                    .filter(Boolean)
+            };
+        });
+    } catch (error) {
+        console.error('Error in getBatchSummaries:', error);
+        return [];
+    }
+};
+
 // ============ GENERATION FUNCTIONS ============
 
 export const getGenerations = async () => {

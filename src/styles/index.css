@@ -503,6 +503,49 @@ select:focus {
     transition: width 0.3s ease;
 }
 
+/* Range Slider Styling */
+input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 6px;
+    border-radius: 3px;
+    border: none;
+    padding: 0;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--primary-color);
+    cursor: pointer;
+    border: 3px solid var(--surface-color);
+    box-shadow: 0 2px 8px rgba(255, 0, 0, 0.3);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.1);
+    box-shadow: 0 2px 12px rgba(255, 0, 0, 0.5);
+}
+
+input[type="range"]::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--primary-color);
+    cursor: pointer;
+    border: 3px solid var(--surface-color);
+    box-shadow: 0 2px 8px rgba(255, 0, 0, 0.3);
+}
+
+input[type="range"]:focus {
+    outline: none;
+    box-shadow: none;
+}
+
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
     width: 8px;
